@@ -90,7 +90,7 @@ class Settings:
         return [f"key_{i + 1}" for i in range(len(self.llm_api_keys))]
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls) -> Settings:
         origins = tuple(
             normalize_origin(o)
             for o in _split_csv(_env("ALLOWED_ORIGINS", "http://localhost:3000"))

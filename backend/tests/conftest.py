@@ -20,7 +20,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-# Make sure a developer's real .env never leaks into the unit tests.
+# Real provider config is kept aside for the opt-in live test (tests/test_live.py) ...
+LIVE_ENV = {var: os.environ.get(var) for var in ("LLM_API_KEYS", "LLM_MODEL", "LLM_REASONING_EFFORT")}
+# ... and a developer's real .env never leaks into the unit tests.
 for var in ("LLM_API_KEYS", "ENABLE_FAILURE_SIMULATION", "DATABASE_URL", "CACHE_DIR", "CACHE_TYPE"):
     os.environ.pop(var, None)
 
