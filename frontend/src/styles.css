@@ -1024,6 +1024,30 @@ code,
   color: var(--text-muted);
 }
 
+.restore {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.restore-row {
+  display: flex;
+  gap: 8px;
+}
+.restore-row .field-input {
+  flex: 1;
+  min-width: 0;
+}
+.restore-status {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+}
+.restore-status.ok {
+  color: var(--live-fg);
+}
+.restore-status.bad {
+  color: var(--error-fg);
+}
+
 /* ==========================================================================
    Fatal error (error boundary)
    ========================================================================== */

@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, fetchHealth, sendChat, type HealthInfo } from "./api";
+import { ApiError, fetchHealth, fetchHistory, sendChat, type ChatMetadata, type HealthInfo } from "./api";
 import { AssistantMessage } from "./components/AssistantMessage";
 import { Composer } from "./components/Composer";
 import { ErrorMessage } from "./components/ErrorMessage";
 import { buildSimHeader, FailureSimulator, initialSim, type SimState } from "./components/FailureSimulator";
+import { RestoreSession } from "./components/RestoreSession";
 import { PanelSection, SettingsPanel } from "./components/SettingsPanel";
 import { SystemPromptField } from "./components/SystemPromptField";
 import { ThemeToggle } from "./components/ThemeToggle";
+import { exportJson, exportMarkdown } from "./export";
 import { useTheme } from "./theme";
 import type { ChatItem } from "./types";
 import { newSessionId, uid } from "./utils";
@@ -23,7 +25,7 @@ const WIDE = "(min-width: 1100px)";
 
 export default function App() {
   // A brand-new session on every page load (never persisted across reloads).
-  const [sessionId] = useState(newSessionId);
+  const [sessionId, setSessionId] = useState(newSessionId);
   const { theme, toggle: toggleTheme } = useTheme();
   const [items, setItems] = useState<ChatItem[]>([]);
   const [input, setInput] = useState("");
@@ -60,6 +62,46 @@ export default function App() {
     const el = scrollRef.current;
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [items, busy, slow]);
+
+  const newChat = useCallback(() => {
+    setSessionId(newSessionId());
+    setItems([]);
+    setInput("");
+    setAnnouncement("Started a new chat.");
+  }, []);
+
+  const restore = useCallback(async (id: string): Promise<string | null> => {
+    try {
+      const history = await fetchHistory(id);
+      const restored: ChatItem[] = [];
+      let lastUser = "";
+      for (const m of history.messages) {
+        if (m.role === "user") {
+          lastUser = m.content;
+          restored.push({ kind: "user", id: uid(), content: m.content });
+        } else {
+          const meta = m.metadata ?? {};
+          const metadata: ChatMetadata = {
+            resolution_source: meta.resolution_source ?? "LIVE_INFERENCE",
+            model: meta.model ?? "unknown",
+            latency_ms: meta.latency_ms ?? 0,
+            input_tokens: meta.input_tokens ?? 0,
+            output_tokens: meta.output_tokens ?? 0,
+            key_id: meta.key_id ?? null,
+            fallback_attempts: meta.fallback_attempts ?? 0,
+          };
+          restored.push({ kind: "assistant", id: uid(), content: m.content, metadata, prompt: lastUser.trim() });
+        }
+      }
+      setSessionId(history.session_id);
+      setItems(restored);
+      setAnnouncement(`Restored session ${history.session_id} with ${history.messages.length} messages.`);
+      return null;
+    } catch (err) {
+      if (err instanceof ApiError && err.kind === "not_found") return "Session not found.";
+      return err instanceof ApiError ? err.message : "Could not load that session.";
+    }
+  }, []);
 
   const send = useCallback(
     async (text: string, retryOf?: string) => {
@@ -144,6 +186,9 @@ export default function App() {
           <span className="session-chip" title="Current session id">
             <span className="meta-label">Session</span> <code data-testid="session-id">{sessionId}</code>
           </span>
+          <button className="btn" onClick={newChat} disabled={busy} data-testid="new-chat-button" title="Start a new session">
+            <PlusIcon /> <span className="hide-sm">New chat</span>
+          </button>
           <button
             className={`btn ${panelOpen ? "btn-active" : ""}`}
             onClick={() => setPanelOpen((o) => !o)}
@@ -224,6 +269,19 @@ export default function App() {
         >
           <FailureSimulator sim={sim} onChange={setSim} keyIds={keyIds} backendEnabled={health?.simulationEnabled ?? null} />
         </PanelSection>
+        <PanelSection title="History" hint="Reloads a stored conversation from SQLite via GET /sessions/{id}/messages.">
+          <RestoreSession onRestore={restore} disabled={busy} />
+        </PanelSection>
+        <PanelSection title="Export">
+          <div className="preset-row">
+            <button className="btn btn-sm" disabled={items.length === 0} onClick={() => exportMarkdown(sessionId, items)} data-testid="export-md">
+              Markdown
+            </button>
+            <button className="btn btn-sm" disabled={items.length === 0} onClick={() => exportJson(sessionId, items)} data-testid="export-json">
+              JSON
+            </button>
+          </div>
+        </PanelSection>
       </SettingsPanel>
       </div>
 
@@ -231,6 +289,14 @@ export default function App() {
         {announcement}
       </div>
     </div>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
   );
 }
 
