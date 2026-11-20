@@ -7,11 +7,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .api import router
 from .cache import setup_cache
 from .config import Settings
 from .db import Database
 from .llm_gateway import LLMGateway
 from .logging_config import configure_logging
+from .session_locks import SessionLocks
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -25,6 +27,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.db = db
         app.state.cache_type = setup_cache(settings)
         app.state.gateway = LLMGateway(settings, cache_enabled=True)
+        app.state.session_locks = SessionLocks()
         try:
             yield
         finally:
@@ -36,6 +39,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     app.state.settings = settings
+    app.include_router(router)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.allowed_origins),
