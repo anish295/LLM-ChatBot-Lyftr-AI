@@ -1042,6 +1042,11 @@ code,
   flex: 1;
   min-width: 0;
 }
+.session-line {
+  margin: 0 0 4px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
 .restore-status {
   margin: 2px 0 0;
   font-size: 0.78rem;
@@ -1113,6 +1118,31 @@ code,
 @media (max-width: 640px) {
   body {
     font-size: 14.5px;
+  }
+  .brand h1 {
+    white-space: nowrap;
+  }
+  .brand img {
+    width: 28px;
+    height: 28px;
+  }
+  .topbar-actions {
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+  .topbar .btn {
+    padding: 7px 9px;
+  }
+  .topbar .icon-btn {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+  }
+  .status-pill {
+    padding: 6px;
+  }
+  .session-chip {
+    display: none;
   }
   .topbar {
     padding: 10px 12px;

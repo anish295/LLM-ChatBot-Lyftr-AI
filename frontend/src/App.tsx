@@ -282,6 +282,9 @@ export default function App() {
           <FailureSimulator sim={sim} onChange={setSim} keyIds={keyIds} backendEnabled={health?.simulationEnabled ?? null} />
         </PanelSection>
         <PanelSection title="History" hint="Reloads a stored conversation from SQLite via GET /sessions/{id}/messages.">
+          <p className="session-line">
+            Current session: <code>{sessionId}</code>
+          </p>
           <RestoreSession onRestore={restore} disabled={busy} />
         </PanelSection>
         <PanelSection title="Export">
