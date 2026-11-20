@@ -1,0 +1,8 @@
+fastapi==0.165.0
+uvicorn[standard]==0.54.0
+pydantic==2.14.4
+aiosqlite==0.22.1
+# Pinned: 1.77.x still ships LiteLLM's native DiskCache (type="disk") and a lean cache-hit path.
+litellm==1.77.7
+diskcache==5.6.3
+orjson==3.11.4
