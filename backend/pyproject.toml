@@ -1,6 +1,9 @@
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
+# LiteLLM keeps a module-level logging worker bound to the first event loop it sees,
+# so all async tests share one loop (exactly like a real server process).
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 testpaths = ["tests"]
 filterwarnings = ["ignore::DeprecationWarning", "ignore::UserWarning"]
 markers = ["live: hits the real LLM provider (skipped without LLM_API_KEYS)"]

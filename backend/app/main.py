@@ -7,8 +7,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .cache import setup_cache
 from .config import Settings
 from .db import Database
+from .llm_gateway import LLMGateway
 from .logging_config import configure_logging
 
 
@@ -21,6 +23,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         db = Database(settings.database_path)
         await db.connect()
         app.state.db = db
+        app.state.cache_type = setup_cache(settings)
+        app.state.gateway = LLMGateway(settings, cache_enabled=True)
         try:
             yield
         finally:

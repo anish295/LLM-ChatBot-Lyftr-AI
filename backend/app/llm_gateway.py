@@ -137,6 +137,23 @@ class LLMGateway:
             kwargs["cache"] = {"no-cache": True}
         return kwargs
 
+    async def _store_in_cache(self, response: Any, kwargs: dict[str, Any]) -> None:
+        """Write a live answer to LiteLLM's cache *before* we respond.
+
+        LiteLLM normally stores responses from a background logging task, i.e. a few
+        ms after the call returns. A client firing the identical request right away
+        could then miss the cache. Writing synchronously through the same
+        ``litellm.cache`` API (same key derivation) removes that race; LiteLLM's own
+        later write is an idempotent overwrite of the same entry.
+        """
+        if not self.cache_enabled or litellm.cache is None:
+            return
+        try:
+            store_kwargs = {k: v for k, v in kwargs.items() if k != "cache"}
+            await litellm.cache.async_add_cache(response, **store_kwargs)
+        except Exception:  # noqa: BLE001 - caching must never break a reply
+            logger.warning("cache write failed", extra={"event": "cache_write_failed"}, exc_info=True)
+
     def _to_result(
         self, response: Any, messages: list[dict[str, str]], key_id: str, failures: int
     ) -> LLMResult:
@@ -229,8 +246,11 @@ class LLMGateway:
         try:
             if simulated_status is not None:
                 raise make_simulated_error(simulated_status, self.model, key_id)
-            response = await litellm.acompletion(**self._build_kwargs(api_key, messages, bypass_cache))
+            kwargs = self._build_kwargs(api_key, messages, bypass_cache)
+            response = await litellm.acompletion(**kwargs)
             result = self._to_result(response, messages, key_id, failures_so_far)
+            if not result.cache_hit:
+                await self._store_in_cache(response, kwargs)
         except Exception as exc:  # noqa: BLE001 - every provider failure fails over
             status = _status_of(exc)
             if isinstance(exc, EmptyReplyError):
