@@ -99,6 +99,19 @@ chat "$SC" "And another one? [smoke $NONCE]" "X-Simulate-Failure: key_1=500"
 expect "status code" "$CODE" 200
 expect "key_id" "$(jget 'j["metadata"]["key_id"]')" key_2
 
+for st in 502 503; do
+  step "Failover: X-Simulate-Failure: key_1=$st"
+  chat "smoke-f$st-$NONCE" "Name one fruit. [smoke $NONCE $st]" "X-Simulate-Failure: key_1=$st"
+  expect "status code" "$CODE" 200
+  expect "key_id" "$(jget 'j["metadata"]["key_id"]')" key_2
+  expect "fallback_attempts" "$(jget 'j["metadata"]["fallback_attempts"]')" 1
+done
+
+step "Equal-length first messages in new sessions -> about the same input_tokens"
+chat "smoke-e1-$NONCE" "Name a red fruit. [eq1 $NONCE]"; E1="$(jget 'j["metadata"]["input_tokens"]')"
+chat "smoke-e2-$NONCE" "Name a big city. [eq2 $NONCE]"; E2="$(jget 'j["metadata"]["input_tokens"]')"
+expect "input_tokens within 3 ($E1 vs $E2)" "$("$PY" -c "print(abs($E1-$E2) <= 3)")" True
+
 step "All keys fail -> 503, history unchanged"
 req GET "/sessions/$SA/messages"; BEFORE="$(jget 'len(j["messages"])')"
 chat "$SA" "This must not be stored" "X-Simulate-Failure: *=429"
