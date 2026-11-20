@@ -150,6 +150,7 @@ async def test_health(client):
     r = await client.get("/health")
     assert r.status_code == 200
     assert r.json() == {"status": "ok", "keys_configured": 2, "cache_enabled": True}
+    assert r.headers["X-Failure-Simulation"] == "enabled"
 
 
 async def test_all_keys_fail_returns_503_and_stores_nothing(client):

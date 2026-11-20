@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 
 import litellm
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 
 from .config import Settings
@@ -92,7 +92,11 @@ async def chat(body: ChatRequest, request: Request) -> ChatResponse:
     responses={503: {"model": ErrorResponse}},
     summary="Liveness + readiness: app up, DB reachable, key pool loaded",
 )
-async def health(request: Request):
+async def health(request: Request, response: Response):
+    # Body stays exactly {status, keys_configured, cache_enabled}; the UI learns whether
+    # the failure-simulation hook is on from a response header instead.
+    sim_header = {"X-Failure-Simulation": "enabled" if _settings(request).enable_failure_simulation else "disabled"}
+    response.headers.update(sim_header)
     db_ok = await _db(request).ping()
     keys = _gateway(request).keys_configured
     cache_on = litellm.cache is not None
@@ -100,6 +104,7 @@ async def health(request: Request):
         return HealthResponse(status="ok", keys_configured=keys, cache_enabled=cache_on)
     return JSONResponse(
         status_code=503,
+        headers=sim_header,
         content={
             "detail": "database unreachable" if not db_ok else "no API keys configured",
             "status": "unavailable",

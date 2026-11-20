@@ -4,6 +4,15 @@ interface Props {
   item: AssistantItem;
 }
 
+function failoverText(keyId: string, attempts: number): string {
+  const idx = Number(keyId.replace("key_", ""));
+  if (Number.isFinite(idx) && idx - 1 === attempts) {
+    const path = Array.from({ length: idx }, (_, i) => `key_${i + 1}`).join(" → ");
+    return `Failover: ${path} (${attempts} attempt${attempts === 1 ? "" : "s"})`;
+  }
+  return `Failover → ${keyId} after ${attempts} failed attempt${attempts === 1 ? "" : "s"}`;
+}
+
 /**
  * One assistant reply plus the metadata of the request that produced it.
  * Contract: every meta-* element's text content is exactly the value; labels live
@@ -12,6 +21,7 @@ interface Props {
 export function AssistantMessage({ item }: Props) {
   const m = item.metadata;
   const cached = m.resolution_source === "LLM_CACHE";
+  const failedOver = m.fallback_attempts > 0 && m.key_id;
   return (
     <article className="msg msg-assistant" data-testid="assistant-message" aria-label="Assistant reply">
       <div className="avatar avatar-bot" aria-hidden="true">AI</div>
@@ -41,7 +51,29 @@ export function AssistantMessage({ item }: Props) {
             <span className="meta-value" data-testid="meta-output-tokens">{m.output_tokens}</span>
           </span>
         </div>
+        {(failedOver || item.simulate) && (
+          <div className="chip-row">
+            {failedOver && (
+              <span className="chip chip-failover" data-testid="failover-chip">
+                <ShieldIcon /> {failoverText(m.key_id!, m.fallback_attempts)}
+              </span>
+            )}
+            {item.simulate && (
+              <span className="chip chip-sim" title="This request carried the X-Simulate-Failure header">
+                Simulated: <code>{item.simulate}</code>
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </article>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6l8-3z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    </svg>
   );
 }

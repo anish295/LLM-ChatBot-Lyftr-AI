@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, sendChat } from "./api";
+import { ApiError, fetchHealth, sendChat, type HealthInfo } from "./api";
 import { AssistantMessage } from "./components/AssistantMessage";
 import { Composer } from "./components/Composer";
 import { ErrorMessage } from "./components/ErrorMessage";
+import { buildSimHeader, FailureSimulator, initialSim, type SimState } from "./components/FailureSimulator";
 import { PanelSection, SettingsPanel } from "./components/SettingsPanel";
 import { SystemPromptField } from "./components/SystemPromptField";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -31,7 +32,29 @@ export default function App() {
   const [announcement, setAnnouncement] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [panelOpen, setPanelOpen] = useState(() => window.matchMedia?.(WIDE).matches ?? false);
+  const [sim, setSim] = useState<SimState>(initialSim);
+  const [health, setHealth] = useState<HealthInfo | null>(null);
+  const [healthState, setHealthState] = useState<"checking" | "ok" | "down">("checking");
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Probe /health on load: wakes a sleeping free-tier backend early and tells us
+  // the key pool size and whether the failure-simulation hook is enabled.
+  useEffect(() => {
+    let cancelled = false;
+    fetchHealth()
+      .then((h) => {
+        if (!cancelled) {
+          setHealth(h);
+          setHealthState("ok");
+        }
+      })
+      .catch(() => !cancelled && setHealthState("down"));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const keyIds = Array.from({ length: Math.max(health?.keys_configured ?? 2, 1) }, (_, i) => `key_${i + 1}`);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -42,11 +65,13 @@ export default function App() {
     async (text: string) => {
       if (busy || text.length === 0) return;
       setInput(""); // contract: chat-input is empty after sending
-      setItems((prev) => [...prev, { kind: "user", id: uid(), content: text }]);
+      const simulate = buildSimHeader(sim) || undefined;
+      if (simulate && sim.oneShot) setSim((s) => ({ ...s, enabled: false }));
+      setItems((prev) => [...prev, { kind: "user", id: uid(), content: text, simulate }]);
       setBusy(true);
       setSlow(false);
       const slowTimer = setTimeout(() => setSlow(true), SLOW_MS);
-      const attempt = () => sendChat({ sessionId, message: text, systemPrompt });
+      const attempt = () => sendChat({ sessionId, message: text, systemPrompt, simulateFailure: simulate });
       try {
         let res;
         try {
@@ -63,7 +88,14 @@ export default function App() {
         }
         setItems((prev) => [
           ...prev,
-          { kind: "assistant", id: uid(), content: res.reply, metadata: res.metadata, prompt: text.trim() },
+          {
+            kind: "assistant",
+            id: uid(),
+            content: res.reply,
+            metadata: res.metadata,
+            prompt: text.trim(),
+            simulate,
+          },
         ]);
         setAnnouncement(`Assistant replied (${res.metadata.resolution_source}).`);
       } catch (err) {
@@ -80,7 +112,7 @@ export default function App() {
         setSlow(false);
       }
     },
-    [busy, sessionId, systemPrompt],
+    [busy, sessionId, systemPrompt, sim],
   );
 
   return (
@@ -96,6 +128,14 @@ export default function App() {
           </div>
         </div>
         <div className="topbar-actions">
+          <span className={`status-pill status-${healthState}`} data-testid="backend-status" title="Backend /health">
+            <span className="status-dot" aria-hidden="true" />
+            <span className="hide-sm">
+              {healthState === "checking" && "Connecting…"}
+              {healthState === "ok" && `Online · ${health?.keys_configured} keys · cache ${health?.cache_enabled ? "on" : "off"}`}
+              {healthState === "down" && "Backend unreachable"}
+            </span>
+          </span>
           <span className="session-chip" title="Current session id">
             <span className="meta-label">Session</span> <code data-testid="session-id">{sessionId}</code>
           </span>
@@ -165,6 +205,17 @@ export default function App() {
       <SettingsPanel open={panelOpen} onClose={() => setPanelOpen(false)}>
         <PanelSection title="Persona">
           <SystemPromptField value={systemPrompt} onChange={setSystemPrompt} locked={items.some((i) => i.kind === "assistant")} />
+        </PanelSection>
+        <PanelSection
+          title="Failure simulator"
+          hint={
+            <>
+              Make chosen keys fail for one request to watch failover live. Simulated requests skip the cache read so
+              the surviving key gives a real answer.
+            </>
+          }
+        >
+          <FailureSimulator sim={sim} onChange={setSim} keyIds={keyIds} backendEnabled={health?.simulationEnabled ?? null} />
         </PanelSection>
       </SettingsPanel>
       </div>

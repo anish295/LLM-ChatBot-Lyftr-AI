@@ -50,6 +50,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=["X-Failure-Simulation", "X-Request-ID"],
     )
     return app
 
