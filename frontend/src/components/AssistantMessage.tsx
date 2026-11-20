@@ -50,6 +50,14 @@ export function AssistantMessage({ item }: Props) {
             <span className="meta-label">Output tokens:</span>
             <span className="meta-value" data-testid="meta-output-tokens">{m.output_tokens}</span>
           </span>
+          <span className="meta-item" title={cached ? "Cache hits are not served by any key" : "Key that answered"}>
+            <span className="meta-label">Key</span>
+            <span className="meta-value mono" data-testid="meta-key">{m.key_id ?? "none"}</span>
+          </span>
+          <span className="meta-item" title="Keys that failed before one succeeded">
+            <span className="meta-label">Fallbacks</span>
+            <span className="meta-value" data-testid="meta-fallbacks">{m.fallback_attempts}</span>
+          </span>
         </div>
         {(failedOver || item.simulate) && (
           <div className="chip-row">
