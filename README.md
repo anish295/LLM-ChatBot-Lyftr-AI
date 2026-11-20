@@ -32,11 +32,11 @@ Conversations are stored per session in SQLite on a Docker volume, so they survi
 
 - [Features](#features)
 - [1. Live URLs](#1-live-urls)
-- [2. Run locally](#2-run-locally)
-- [3. Design decisions](#3-design-decisions)
-- [4. Verification](#4-verification)
-- [5. Setup Used](#5-setup-used)
-- [6. Bonus features](#6-bonus-features)
+- [2. Run locally: with Docker and without](#2-run-locally-with-docker-and-without)
+- [3. Design decisions: key fallback, caching, SQLite session storage](#3-design-decisions-key-fallback-caching-sqlite-session-storage)
+- [4. Verification: how to see failover, cache hits and per-message token usage](#4-verification-how-to-see-failover-cache-hits-and-per-message-token-usage)
+- [5. Setup Used: editor and AI tools](#5-setup-used-editor-and-ai-tools)
+- [6. Bonus features: what was added beyond the requirements and why](#6-bonus-features-what-was-added-beyond-the-requirements-and-why)
 - [Screenshots](#screenshots)
 - [API reference](#api-reference)
 - [Environment variables](#environment-variables)
@@ -72,9 +72,8 @@ Every URL below is public and needs no login.
 | Swagger UI | https://lyftr-chat-backend.onrender.com/docs |
 | Health | https://lyftr-chat-backend.onrender.com/health |
 | Repository | https://github.com/anish295/LLM-ChatBot-Lyftr-AI |
-| Demo video (2-3 min) | `<link to your recording>` |
 
-The live deployment passes all 45 smoke-test checks (`bash scripts/smoke_test.sh https://lyftr-chat-backend.onrender.com`) and the 5 Playwright UI contract tests against the Netlify URL.
+The live deployment passes all 52 smoke-test checks (`bash scripts/smoke_test.sh https://lyftr-chat-backend.onrender.com`) and the 5 Playwright UI contract tests against the Netlify URL.
 
 > The backend runs on Render's free tier and **sleeps after about 15 minutes idle**, so the first request can take 30-60 s. The UI shows a "warming up the server…" state and retries once. See [keep-alive](#6-keep-the-free-backend-awake).
 
@@ -82,7 +81,7 @@ The live deployment passes all 45 smoke-test checks (`bash scripts/smoke_test.sh
 
 ---
 
-## 2. Run locally
+## 2. Run locally: with Docker and without
 
 ### Prerequisites
 - **Docker** with the Compose plugin (Docker Desktop on Windows/macOS), and `make` (on Windows use `mingw32-make`, or run the `docker compose` commands directly).
@@ -140,7 +139,7 @@ npm run dev            # http://localhost:5173 (already in the default ALLOWED_O
 
 ---
 
-## 3. Design decisions
+## 3. Design decisions: key fallback, caching, SQLite session storage
 
 ### Architecture
 
@@ -211,7 +210,12 @@ sequenceDiagram
 
 - **Pool:** `LLM_API_KEYS` is split on commas (whitespace trimmed, empties ignored) into `key_1..key_N`. Raw keys never appear in a response or a log. Every log line uses key ids, and exception text is passed through a redactor before logging (Gemini, for example, can put the key in a URL).
 - **Loop, not Router:** for each key, in order starting at `key_1` (deterministic), we call `litellm.acompletion(model, messages, api_key=..., caching=True, num_retries=0, timeout=...)`. LiteLLM normalises provider errors into typed exceptions. **Any** failure on a key fails over: `RateLimitError`/quota (429), `InternalServerError`/`ServiceUnavailableError`/`APIError` (5xx), `Timeout`, `APIConnectionError`, auth errors (401/403, so a dead key never breaks the app) and empty replies. The loop is bounded by the pool size, so it can never spin. When every key fails, we raise a domain error that maps to `503 {"detail":"all providers unavailable"}`.
-  *Why not LiteLLM's `Router` fallbacks?* The contract needs the exact id of the key that answered and the number of keys that failed first. The simulation hook also needs to fail a *specific* key inside the real code path. The Router hides both behind its own retry and cooldown logic. The explicit loop is still 100% LiteLLM for calls, errors and caching, and stays fully observable.
+  *Why not LiteLLM's `Router` fallbacks?* There are three concrete reasons:
+  1. **Per-request simulation:** the Router's cooldown is shared process state. A simulated `key_1=429` would bench `key_1` for later requests too, which breaks "for this request only".
+  2. **Deterministic key ids:** the Router's load balancing picks deployments itself, so `key_id` and `fallback_attempts` would not be deterministic.
+  3. **Exact attempt count:** the contract needs the number of keys that failed *before* the answering one, which the Router does not expose.
+
+  So LiteLLM does all the provider work (`litellm.acompletion` for every call, the typed `litellm.*Error` exceptions that drive failover, and the built-in `litellm.cache`), while the ordering and accounting stay in ~40 lines we control and test.
 - **Cooldown (circuit breaker):** after a *real* 429/401/403, a key is skipped for `KEY_COOLDOWN_SECONDS` (default 30). A skipped key counts as a failed attempt. If every key is cooling down, they are still tried as a last resort. Simulated requests neither read nor write cooldown state, so the hook's contract table always holds.
 
 ### Caching
@@ -225,6 +229,10 @@ sequenceDiagram
 - **Temperature 0** by default, so live answers are stable and cache-friendly.
 - **Simulated requests bypass the cache *read*** (`cache={"no-cache": True}`). Otherwise a previously cached message would come back as `LLM_CACHE` and hide the failover. The surviving key therefore produces a **real, live answer**, never an error wrapped in a 200. Its answer is still written to the cache.
 - **Version pin:** `litellm==1.77.7`. Newer releases removed the `disk` cache type, and their cache-hit path imports proxy-only dependencies. 1.77.7 is the newest release I verified with the native disk cache.
+
+### Token accounting
+
+`input_tokens` and `output_tokens` come straight from the provider's `usage` block (`prompt_tokens` / `completion_tokens`) for this request. The prompt count covers system + history + new message, and is never summed across turns. The default model (`gpt-oss-120b`) is a reasoning model, so `output_tokens` also includes the hidden reasoning tokens the provider bills for. That's why a one-word answer can report ~15-30 output tokens. On a cache hit the usage stored with the cached response is returned unchanged. If a provider ever omits usage, `litellm.token_counter` is used as a fallback.
 
 ### SQLite session storage
 
@@ -245,7 +253,7 @@ sequenceDiagram
 
 ---
 
-## 4. Verification
+## 4. Verification: how to see failover, cache hits and per-message token usage
 
 Set the base URL once (local or deployed):
 
@@ -257,7 +265,7 @@ B=http://localhost:8000          # or https://<your-backend>.onrender.com
 
 ```bash
 make smoke                                   # local
-bash scripts/smoke_test.sh "$B"              # any URL: 45 contract checks, exits non-zero on failure
+bash scripts/smoke_test.sh "$B"              # any URL: 52 contract checks, exits non-zero on failure
 ```
 
 ![smoke test](docs/screenshots/13-terminal-smoke-test.png)
@@ -327,7 +335,7 @@ curl -s -X POST $B/chat -H 'Content-Type: application/json' -d '{"session_id":"x
 
 ---
 
-## 5. Setup Used
+## 5. Setup Used: editor and AI tools
 
 | | |
 |---|---|
@@ -338,11 +346,11 @@ curl -s -X POST $B/chat -H 'Content-Type: application/json' -d '{"session_id":"x
 
 ---
 
-## 6. Bonus features
+## 6. Bonus features: what was added beyond the requirements and why
 
 | Feature | Why |
 |---|---|
-| **Failure Simulator panel** (presets `key_1=429`, `key_1=500`, `*=429`, per-key dropdowns, a one-shot toggle and a live header preview) plus a **Failover chip** on affected replies | Demonstrates failover live in the UI and the demo video without curl. It detects whether the backend has simulation enabled from an `X-Failure-Simulation` header on `/health`, leaving the response body untouched, and disables itself with an explanation if not. |
+| **Failure Simulator panel** (presets `key_1=429`, `key_1=500`, `*=429`, per-key dropdowns, a one-shot toggle and a live header preview) plus a **Failover chip** on affected replies | Demonstrates failover live in the UI without curl. It detects whether the backend has simulation enabled from an `X-Failure-Simulation` header on `/health`, leaving the response body untouched, and disables itself with an explanation if not. |
 | **`key_id` + `fallback_attempts` in the metadata row** (`meta-key`, `meta-fallbacks`) | Makes resilience visible on every reply, not just in logs. |
 | **Cache performance chip**, e.g. "Cache hit: 397× faster than live" | Shows the speed benefit of caching using latencies of the same prompt, never token totals. |
 | **Markdown rendering** with syntax highlighting (theme-aware) and a **copy button** per reply | LLMs answer in Markdown. Raw HTML is never rendered (react-markdown escapes it), so model output cannot inject markup. |
@@ -467,7 +475,7 @@ Every variable lives in [`.env.example`](.env.example) with placeholder values.
 ```bash
 make test                         # 103 backend tests (pytest), no network: LiteLLM is driven with mock responses
 cd backend && pytest -m live      # optional live smoke test (needs LLM_API_KEYS with 2+ real keys)
-make smoke                        # 45 HTTP contract checks against a running backend
+make smoke                        # 52 HTTP contract checks against a running backend
 cd frontend && E2E_BASE_URL=http://localhost:3000 npx playwright test e2e/contract.spec.ts   # UI contract
 ```
 
@@ -495,7 +503,7 @@ The unit tests patch `litellm.acompletion` with a wrapper that **still calls the
 
 > Free-tier trade-off: Render's free plan has **no persistent disk**, so `/data/app.db` and the cache reset on every redeploy or restart. The app recreates the schema on startup and never crashes on a missing DB or cache directory. That is fine for grading. Locally, the Docker named volume persists everything.
 
-### 2. Frontend on Vercel (or Netlify)
+### 2. Frontend on Netlify (deployed) or Vercel
 **Vercel:** go to **https://vercel.com/new → Import** the repo, then:
 - **Root Directory:** `frontend` (the framework is detected as Vite and [`frontend/vercel.json`](frontend/vercel.json) adds SPA rewrites)
 - **Environment Variables:** `VITE_API_BASE_URL` = `https://<your-backend>.onrender.com` (no trailing slash)
@@ -518,14 +526,14 @@ In Render, go to **lyftr-chat-backend → Environment** and set `ALLOWED_ORIGINS
 bash scripts/smoke_test.sh https://<your-backend>.onrender.com
 ```
 
-### 5. GitHub secrets for the keep-alive workflow
-Go to **GitHub repo → Settings → Secrets and variables → Actions → New repository secret** and add:
+### 5. (Optional) GitHub secrets for the keep-alive workflow
+The workflow defaults to this project's live URLs. To target a different deployment, go to **GitHub repo → Settings → Secrets and variables → Actions → New repository secret** and add:
 - `BACKEND_URL` = `https://<your-backend>.onrender.com`
 - `FRONTEND_URL` = `https://<your-frontend>.vercel.app`
 
 ### 6. Keep the free backend awake
 Render's free services sleep after about 15 minutes idle. There are two options:
-- **GitHub Actions** ([`.github/workflows/keep-alive.yml`](.github/workflows/keep-alive.yml)) pings `/health` every 10 minutes, using the secrets above. Caveats: GitHub can delay scheduled runs by several minutes, and it pauses schedules after 60 days without repository activity (re-enable them in the Actions tab). You can also trigger it manually with **Run workflow**.
+- **GitHub Actions** ([`.github/workflows/keep-alive.yml`](.github/workflows/keep-alive.yml)) pings `/health` and the frontend every 5 minutes. It already defaults to the live URLs, and the secrets above are only needed to point it somewhere else. Caveats: GitHub can delay scheduled runs by several minutes, and it pauses schedules after 60 days without repository activity (re-enable them in the Actions tab). You can also trigger it manually with **Run workflow**.
 - **More reliable: cron-job.org or UptimeRobot (free).**
   - *cron-job.org:* sign up, then **Create cronjob**. Set URL `https://<your-backend>.onrender.com/health` and the schedule **every 5 minutes**, then **Create**.
   - *UptimeRobot:* **Add New Monitor**, type **HTTP(s)**, URL `.../health`, monitoring interval **5 minutes**, then **Create Monitor**.
@@ -564,14 +572,13 @@ Render's free services sleep after about 15 minutes idle. There are two options:
 │   ├── Dockerfile             # node build → unprivileged nginx on :3000
 │   ├── nginx.conf             # SPA fallback, caching, /healthz
 │   └── vercel.json
-├── scripts/smoke_test.sh      # 45 contract checks for any backend URL
+├── scripts/smoke_test.sh      # 52 contract checks for any backend URL
 ├── docs/screenshots/          # README images
 ├── .github/workflows/         # ci.yml, keep-alive.yml
 ├── docker-compose.yml         # backend :8000 + frontend :3000, named volume at /data
 ├── Makefile                   # up, down, logs, test, lint, smoke, clean
 ├── render.yaml · netlify.toml
 ├── .env.example
-├── DEMO_SCRIPT.md
 └── README.md
 ```
 
