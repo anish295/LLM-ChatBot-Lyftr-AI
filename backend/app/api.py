@@ -4,17 +4,20 @@ from __future__ import annotations
 
 import time
 
+import litellm
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 from .config import Settings
 from .db import Database
 from .llm_gateway import AllProvidersUnavailable, LLMGateway
-from .schemas import ChatMetadata, ChatRequest, ChatResponse, ErrorResponse
+from .schemas import ChatMetadata, ChatRequest, ChatResponse, ErrorResponse, HealthResponse, HistoryResponse
 from .session_locks import SessionLocks
 
 router = APIRouter()
 
 ALL_UNAVAILABLE = "all providers unavailable"
+SESSION_NOT_FOUND = "session not found"
 
 
 def _db(request: Request) -> Database:
@@ -74,3 +77,39 @@ async def chat(body: ChatRequest, request: Request) -> ChatResponse:
         )
 
     return ChatResponse(session_id=body.session_id, reply=result.reply, metadata=metadata)
+
+
+@router.get(
+    "/health",
+    response_model=HealthResponse,
+    responses={503: {"model": ErrorResponse}},
+    summary="Liveness + readiness: app up, DB reachable, key pool loaded",
+)
+async def health(request: Request):
+    db_ok = await _db(request).ping()
+    keys = _gateway(request).keys_configured
+    cache_on = litellm.cache is not None
+    if db_ok and keys > 0:
+        return HealthResponse(status="ok", keys_configured=keys, cache_enabled=cache_on)
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": "database unreachable" if not db_ok else "no API keys configured",
+            "status": "unavailable",
+            "keys_configured": keys,
+            "cache_enabled": cache_on,
+        },
+    )
+
+
+@router.get(
+    "/sessions/{session_id}/messages",
+    response_model=None,
+    responses={200: {"model": HistoryResponse}, 404: {"model": ErrorResponse}},
+    summary="Stored history of one session, oldest first, without the system prompt",
+)
+async def session_messages(session_id: str, request: Request):
+    db = _db(request)
+    if not await db.session_exists(session_id):
+        raise HTTPException(status_code=404, detail=SESSION_NOT_FOUND)
+    return {"session_id": session_id, "messages": await db.get_history(session_id)}

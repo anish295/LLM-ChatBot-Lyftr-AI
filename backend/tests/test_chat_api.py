@@ -58,6 +58,14 @@ async def test_cache_hit_in_new_session(client):
     assert m2["latency_ms"] < m1["latency_ms"]
 
 
+async def test_message_is_trimmed_before_use(client):
+    a = (await chat(client, "s-t1", "Trim me")).json()
+    b = (await chat(client, "s-t2", "   Trim me  \n")).json()
+    assert b["metadata"]["resolution_source"] == "LLM_CACHE" and b["reply"] == a["reply"]
+    hist = (await client.get("/sessions/s-t2/messages")).json()
+    assert hist["messages"][0]["content"] == "Trim me"
+
+
 async def test_different_message_is_live(client):
     await chat(client, "s-a", "Question one")
     r = (await chat(client, "s-b", "Question two")).json()
@@ -115,6 +123,46 @@ async def test_system_prompt_persisted_per_session(client):
     assert sent[2][0]["content"] == "You are a helpful, concise assistant."
 
 
+async def test_history_endpoint(client):
+    await chat(client, "s-h", "first", system_prompt="secret system prompt")
+    await chat(client, "s-h", "second")
+    r = await client.get("/sessions/s-h/messages")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["session_id"] == "s-h"
+    msgs = body["messages"]
+    assert [m["role"] for m in msgs] == ["user", "assistant", "user", "assistant"]
+    assert [m["content"] for m in msgs[::2]] == ["first", "second"]
+    assert all(m["role"] != "system" for m in msgs)
+    assert "secret system prompt" not in r.text
+    assert "metadata" not in msgs[0]
+    for m in msgs[1::2]:
+        assert {"resolution_source", "input_tokens", "output_tokens"} <= set(m["metadata"])
+
+
+async def test_history_unknown_session_404(client):
+    r = await client.get("/sessions/does-not-exist/messages")
+    assert r.status_code == 404
+    assert r.json() == {"detail": "session not found"}
+
+
+async def test_health(client):
+    r = await client.get("/health")
+    assert r.status_code == 200
+    assert r.json() == {"status": "ok", "keys_configured": 2, "cache_enabled": True}
+
+
+async def test_all_keys_fail_returns_503_and_stores_nothing(client):
+    import litellm
+
+    err = litellm.RateLimitError(message="quota", llm_provider="groq", model="m")
+    client.fake.behaviours = {K1: err, K2: err}
+    r = await chat(client, "s-fail", "hello?")
+    assert r.status_code == 503
+    assert r.json() == {"detail": "all providers unavailable"}
+    assert (await client.get("/sessions/s-fail/messages")).status_code == 404
+
+
 async def test_real_failover_reports_key_2(client):
     import litellm
 
@@ -122,3 +170,12 @@ async def test_real_failover_reports_key_2(client):
     r = (await chat(client, "s-fo", "fail over please")).json()
     assert r["metadata"]["key_id"] == "key_2" and r["metadata"]["fallback_attempts"] == 1
 
+
+async def test_concurrent_turns_same_session_are_serialized(client):
+    import asyncio
+
+    await asyncio.gather(*(chat(client, "s-conc", f"msg {i}") for i in range(5)))
+    msgs = (await client.get("/sessions/s-conc/messages")).json()["messages"]
+    assert [m["role"] for m in msgs] == ["user", "assistant"] * 5
+    turns = [int(m["content"].split()[2].rstrip(":")) for m in msgs[1::2]]
+    assert turns == [1, 2, 3, 4, 5]
