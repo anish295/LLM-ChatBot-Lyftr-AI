@@ -62,12 +62,17 @@ export default function App() {
   }, [items, busy, slow]);
 
   const send = useCallback(
-    async (text: string) => {
+    async (text: string, retryOf?: string) => {
       if (busy || text.length === 0) return;
-      setInput(""); // contract: chat-input is empty after sending
       const simulate = buildSimHeader(sim) || undefined;
       if (simulate && sim.oneShot) setSim((s) => ({ ...s, enabled: false }));
-      setItems((prev) => [...prev, { kind: "user", id: uid(), content: text, simulate }]);
+      if (retryOf) {
+        // Retry: drop the error card and resend; the user bubble is already on screen.
+        setItems((prev) => prev.filter((i) => i.id !== retryOf));
+      } else {
+        setInput(""); // contract: chat-input is empty after sending
+        setItems((prev) => [...prev, { kind: "user", id: uid(), content: text, simulate }]);
+      }
       setBusy(true);
       setSlow(false);
       const slowTimer = setTimeout(() => setSlow(true), SLOW_MS);
@@ -178,7 +183,9 @@ export default function App() {
               );
             }
             if (item.kind === "assistant") return <AssistantMessage key={item.id} item={item} />;
-            return <ErrorMessage key={item.id} item={item} />;
+            return (
+              <ErrorMessage key={item.id} item={item} disabled={busy} onRetry={(e) => send(e.retryText, e.id)} />
+            );
           })}
 
           {busy && (
