@@ -1,4 +1,6 @@
 import type { AssistantItem } from "../types";
+import { CopyButton } from "./CopyButton";
+import { Markdown } from "./Markdown";
 
 interface Props {
   item: AssistantItem;
@@ -27,7 +29,10 @@ export function AssistantMessage({ item }: Props) {
       <div className="avatar avatar-bot" aria-hidden="true">AI</div>
       <div className="msg-body">
         <div className="bubble bubble-assistant">
-          <div className="reply-text">{item.content}</div>
+          <Markdown text={item.content} />
+          <div className="bubble-tools">
+            <CopyButton text={item.content} />
+          </div>
         </div>
         <div className="meta-row" aria-label="Request metadata">
           <span className={`badge ${cached ? "badge-cache" : "badge-live"}`} title="Resolution source">
