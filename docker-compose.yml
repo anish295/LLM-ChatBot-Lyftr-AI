@@ -1,0 +1,41 @@
+name: lyftr-chat
+
+services:
+  backend:
+    build:
+      context: ./backend
+    image: lyftr-chat-backend:latest
+    env_file: .env
+    environment:
+      # Pinned inside the container so the port mapping below always matches.
+      PORT: "8000"
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/app.db}
+      CACHE_DIR: ${CACHE_DIR:-/data/llm_cache}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - app-data:/data # SQLite file + LiteLLM disk cache survive restarts
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    stop_grace_period: 25s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+    image: lyftr-chat-frontend:latest
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  app-data:
