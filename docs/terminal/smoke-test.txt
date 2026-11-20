@@ -8,14 +8,14 @@
 
 [1m== POST /chat (live) ==[0m
   [32mPASS[0m status code (= 200)
-  [32mPASS[0m session_id echoed (= smoke-a-179518891531173)
+  [32mPASS[0m session_id echoed (= smoke-a-179519520929003)
   [32mPASS[0m resolution_source (= LIVE_INFERENCE)
   [32mPASS[0m latency_ms is int (= int)
   [32mPASS[0m input_tokens is int > 0 (= true)
   [32mPASS[0m output_tokens is int > 0 (= true)
   [32mPASS[0m key_id (= key_1)
   [32mPASS[0m fallback_attempts (= 0)
-  reply: [33mParis is the capital of France.[0m  (283 ms, model groq/openai/gpt-oss-120b)
+  reply: [33mParis is the capital of France.[0m  (328 ms, model groq/openai/gpt-oss-120b)
 
 [1m== Same message, new session -> LLM_CACHE ==[0m
   [32mPASS[0m status code (= 200)
@@ -24,7 +24,7 @@
   [32mPASS[0m key_id is null (= null)
   [32mPASS[0m fallback_attempts (= 0)
   [32mPASS[0m same input_tokens as the stored usage (= 105)
-  [32mPASS[0m cache faster (2 ms < 283 ms)
+  [32mPASS[0m cache faster (2 ms < 328 ms)
 
 [1m== Multi-turn memory ==[0m
   [32mPASS[0m status code (= 200)
@@ -40,6 +40,19 @@
 [1m== Failover: X-Simulate-Failure: key_1=500 ==[0m
   [32mPASS[0m status code (= 200)
   [32mPASS[0m key_id (= key_2)
+
+[1m== Failover: X-Simulate-Failure: key_1=502 ==[0m
+  [32mPASS[0m status code (= 200)
+  [32mPASS[0m key_id (= key_2)
+  [32mPASS[0m fallback_attempts (= 1)
+
+[1m== Failover: X-Simulate-Failure: key_1=503 ==[0m
+  [32mPASS[0m status code (= 200)
+  [32mPASS[0m key_id (= key_2)
+  [32mPASS[0m fallback_attempts (= 1)
+
+[1m== Equal-length first messages in new sessions -> about the same input_tokens ==[0m
+  [32mPASS[0m input_tokens within 3 (97 vs 97) (= True)
 
 [1m== All keys fail -> 503, history unchanged ==[0m
   [32mPASS[0m *=429 status (= 503)
@@ -67,4 +80,4 @@
   [32mPASS[0m malformed JSON (= 422)
   [32mPASS[0m 422 body has detail (= true)
 
-[32m[1mALL 45 CHECKS PASSED[0m
+[32m[1mALL 52 CHECKS PASSED[0m

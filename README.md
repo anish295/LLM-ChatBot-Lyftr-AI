@@ -159,7 +159,7 @@ flowchart LR
     P1["Provider via key_1"]
     P2["Provider via key_2"]
 
-    UI -- "JSON over HTTPS" --> MW --> API
+    UI -- "JSON over HTTPS (live: same-origin /api, proxied by Netlify)" --> MW --> API
     API --> SIM --> GW
     API <--> DB
     GW -- "litellm.acompletion(caching=True)" --> LC
@@ -474,7 +474,7 @@ Every variable lives in [`.env.example`](.env.example) with placeholder values.
 ## Tests
 
 ```bash
-make test                         # 103 backend tests (pytest), no network: LiteLLM is driven with mock responses
+make test                         # 104 backend tests (pytest), no network: LiteLLM is driven with mock responses
 cd backend && pytest -m live      # optional live smoke test (needs LLM_API_KEYS with 2+ real keys)
 make smoke                        # 52 HTTP contract checks against a running backend
 cd frontend && E2E_BASE_URL=http://localhost:3000 npx playwright test e2e/contract.spec.ts   # UI contract
@@ -512,11 +512,15 @@ The unit tests patch `litellm.acompletion` with a wrapper that **still calls the
 
 **Netlify (alternative):** **Add new site → Import from Git**. [`netlify.toml`](netlify.toml) already sets base `frontend`, the build command and the publish dir. Add `VITE_API_BASE_URL` under *Site configuration → Environment variables*, then **Deploy**.
 
+**Same-origin API proxy:** the live frontend calls `/api/*` on its own domain, and Netlify forwards those calls server-side to Render. The rule lives in `dist/_redirects`, which the Vite build generates when `BACKEND_PROXY_TARGET` is set. The browser therefore never makes a cross-site request, so there is no CORS to get wrong and nothing for privacy extensions (uBlock, Firefox tracking protection, ...) to block. The backend still has correct CORS (`ALLOWED_ORIGINS` / `ALLOWED_ORIGIN_REGEX`) for direct callers. The local Docker stack calls `http://localhost:8000` directly.
+
 **How the live deployment is updated:** Render auto-deploys the backend on every push to `main`. The Netlify site is deployed from a local build (it isn't linked to Git), so redeploy the frontend with:
 
 ```bash
-cd frontend && VITE_API_BASE_URL=https://lyftr-chat-backend.onrender.com npm run build && cd ..
-npx netlify-cli deploy --prod --no-build --dir frontend/dist     # after `npx netlify-cli login` + `netlify link`
+cd frontend
+VITE_API_BASE_URL=/api BACKEND_PROXY_TARGET=https://lyftr-chat-backend.onrender.com npm run build
+# Git Bash on Windows: prefix with MSYS_NO_PATHCONV=1 so "/api" isn't rewritten to a Windows path
+cd .. && npx netlify-cli deploy --prod --no-build --dir frontend/dist   # after `npx netlify-cli login` + `netlify link`
 ```
 
 ### 3. Connect the two
@@ -559,7 +563,7 @@ Render's free services sleep after about 15 minutes idle. There are two options:
 │   │   ├── session_locks.py   # per-session asyncio locks
 │   │   ├── config.py          # env → Settings
 │   │   └── logging_config.py  # structured JSON logs
-│   ├── tests/                 # 103 pytest tests + optional live test
+│   ├── tests/                 # 104 pytest tests + optional live test
 │   ├── Dockerfile             # multi-stage, non-root, healthcheck
 │   └── requirements*.txt
 ├── frontend/
@@ -591,7 +595,8 @@ Render's free services sleep after about 15 minutes idle. There are two options:
 |---|---|
 | `/health` returns 503 "no API keys configured" | Set `LLM_API_KEYS` in `.env` (local) or in the Render environment. |
 | Every chat returns 503 | All keys are failing. Run `make logs` (or check the Render logs) and look for `key_failover` lines: `status: 401` means a wrong key or the wrong provider for `LLM_MODEL`; `404` means a model id that isn't available (list models with the curl in [Environment variables](#environment-variables)); `429` means the quota is used up. |
-| Status pill stuck on "Waking server…" while `/health` works in a new tab | The page was opened from an origin the backend doesn't allow (e.g. a Netlify per-deploy URL `https://<id>--site.netlify.app`). Use the production URL, or cover it with `ALLOWED_ORIGIN_REGEX`. |
+| Status pill stuck on "Waking server…", and Firefox says "CORS request did not succeed, status (null)" | The browser never reached the backend: a privacy extension or tracking protection blocked the cross-site request. The live site avoids this with the same-origin `/api` proxy on Netlify. For a frontend calling the backend directly, allow the backend domain in the extension. |
+| Status pill stuck on "Waking server…" while `/health` works in a new tab (Chrome reports a CORS error) | The page was opened from an origin the backend doesn't allow (e.g. a Netlify per-deploy URL `https://<id>--site.netlify.app`). Use the production URL, or cover it with `ALLOWED_ORIGIN_REGEX`. |
 | Browser console shows a CORS error | `ALLOWED_ORIGINS` must contain the exact frontend origin (scheme + host, no path). Redeploy the backend after changing it. |
 | Frontend calls `localhost:8000` in production | `VITE_API_BASE_URL` is baked in at **build** time: set it in Vercel/Netlify and redeploy. |
 | `port is already allocated` on `make up` | Another app is using 3000/8000. Set `FRONTEND_PORT` / `BACKEND_PORT` in `.env` and add the new origin to `ALLOWED_ORIGINS`. |
