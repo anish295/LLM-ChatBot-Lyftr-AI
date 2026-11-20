@@ -161,6 +161,7 @@ code,
   gap: 12px;
   padding: 12px 20px;
   background: color-mix(in srgb, var(--surface) 88%, transparent);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -745,7 +746,15 @@ code,
   background: var(--live-dot);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--live-dot) 25%, transparent);
 }
-.status-checking .status-dot {
+button.status-pill {
+  cursor: pointer;
+  color: var(--text);
+}
+button.status-pill:hover {
+  border-color: var(--border-strong);
+}
+.status-checking .status-dot,
+.status-waking .status-dot {
   background: var(--accent);
   animation: pulse 1.2s infinite;
 }

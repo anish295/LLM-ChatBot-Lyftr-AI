@@ -36,27 +36,51 @@ export default function App() {
   const [panelOpen, setPanelOpen] = useState(() => window.matchMedia?.(WIDE).matches ?? false);
   const [sim, setSim] = useState<SimState>(initialSim);
   const [health, setHealth] = useState<HealthInfo | null>(null);
-  const [healthState, setHealthState] = useState<"checking" | "ok" | "down">("checking");
+  const [healthState, setHealthState] = useState<"checking" | "waking" | "ok" | "down">("checking");
   const scrollRef = useRef<HTMLDivElement>(null);
   // Fastest LIVE_INFERENCE latency seen per prompt (this page only) for the cache speed-up chip.
   const liveLatency = useRef(new Map<string, number>());
 
-  // Probe /health on load: wakes a sleeping free-tier backend early and tells us
-  // the key pool size and whether the failure-simulation hook is enabled.
-  useEffect(() => {
-    let cancelled = false;
-    fetchHealth()
-      .then((h) => {
-        if (!cancelled) {
-          setHealth(h);
-          setHealthState("ok");
-        }
-      })
-      .catch(() => !cancelled && setHealthState("down"));
-    return () => {
-      cancelled = true;
-    };
+  // Health monitor: probes /health on load (which also wakes a sleeping free-tier backend),
+  // retries with backoff while it is unreachable, re-checks every minute and on tab focus.
+  // A single failed probe (cold start, redeploy) therefore never leaves the UI stuck "down".
+  const probeTimer = useRef<number | undefined>(undefined);
+  const probeInFlight = useRef(false);
+  const failingSince = useRef<number | null>(null);
+  const backoff = useRef(5_000);
+  const probe = useCallback(async () => {
+    if (probeInFlight.current) return;
+    probeInFlight.current = true;
+    window.clearTimeout(probeTimer.current);
+    let next: number;
+    try {
+      const h = await fetchHealth();
+      setHealth(h);
+      setHealthState("ok");
+      failingSince.current = null;
+      backoff.current = 5_000;
+      next = 60_000;
+    } catch {
+      failingSince.current ??= Date.now();
+      // First ~90 s of failures look like a free-tier cold start; after that, call it down.
+      setHealthState(Date.now() - failingSince.current < 90_000 ? "waking" : "down");
+      next = backoff.current;
+      backoff.current = Math.min(backoff.current * 2, 30_000);
+    } finally {
+      probeInFlight.current = false;
+    }
+    probeTimer.current = window.setTimeout(probe, next);
   }, []);
+
+  useEffect(() => {
+    void probe();
+    const onVisible = () => document.visibilityState === "visible" && void probe();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearTimeout(probeTimer.current);
+    };
+  }, [probe]);
 
   const keyIds = Array.from({ length: Math.max(health?.keys_configured ?? 2, 1) }, (_, i) => `key_${i + 1}`);
 
@@ -157,9 +181,12 @@ export default function App() {
           },
         ]);
         setAnnouncement(`Assistant replied (${res.metadata.resolution_source}).`);
+        // Any successful reply proves the backend is up; refresh the pill if it said otherwise.
+        if (failingSince.current !== null || !health) void probe();
       } catch (err) {
         const e =
           err instanceof ApiError ? err : new ApiError("server", null, "Something went wrong. Please try again.");
+        if (e.kind === "network" || e.kind === "timeout") void probe();
         setItems((prev) => [
           ...prev,
           { kind: "error", id: uid(), errorKind: e.kind, message: e.message, retryText: text },
@@ -171,7 +198,7 @@ export default function App() {
         setSlow(false);
       }
     },
-    [busy, sessionId, systemPrompt, sim],
+    [busy, sessionId, systemPrompt, sim, health, probe],
   );
 
   return (
@@ -187,14 +214,21 @@ export default function App() {
           </div>
         </div>
         <div className="topbar-actions">
-          <span className={`status-pill status-${healthState}`} data-testid="backend-status" title="Backend /health">
+          <button
+            type="button"
+            className={`status-pill status-${healthState}`}
+            data-testid="backend-status"
+            title="Backend /health: click to re-check now"
+            onClick={() => void probe()}
+          >
             <span className="status-dot" aria-hidden="true" />
             <span className="hide-sm">
               {healthState === "checking" && "Connecting…"}
+              {healthState === "waking" && "Waking server…"}
               {healthState === "ok" && `Online · ${health?.keys_configured} keys · cache ${health?.cache_enabled ? "on" : "off"}`}
-              {healthState === "down" && "Backend unreachable"}
+              {healthState === "down" && "Backend unreachable · retrying"}
             </span>
-          </span>
+          </button>
           <span className="session-chip" title="Current session id">
             <span className="meta-label">Session</span> <code data-testid="session-id">{sessionId}</code>
           </span>
