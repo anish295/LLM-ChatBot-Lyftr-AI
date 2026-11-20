@@ -35,6 +35,7 @@ test("desktop light: empty state, live, cache, failover, 503, system prompt", as
   await setTheme(page, "light");
   await page.goto("/");
   await expect(page.getByTestId("backend-status")).toHaveClass(/status-ok/);
+  await page.waitForTimeout(900); // let the hero fade-in finish
   await page.screenshot({ path: shot("01-empty-state-light.png") });
 
   await send(page, "What is the capital of France?");
