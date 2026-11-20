@@ -331,7 +331,7 @@ curl -s -X POST $B/chat -H 'Content-Type: application/json' -d '{"session_id":"x
 
 | | |
 |---|---|
-| **Editor** | VS Code *(edit if you used a different editor)* |
+| **Editor** | Visual Studio Code (with the Claude Code extension) |
 | **AI tools** | **Claude Code** (Anthropic): architecture, implementation, tests, Docker, docs. Every behaviour was verified by running the test suite, the smoke test and Playwright against the real stack. |
 | **Model provider during development** | Groq free tier (`groq/openai/gpt-oss-120b`) with two keys |
 | **Other tooling** | Docker Desktop, Playwright (UI contract tests + screenshots), ruff, pytest, GitHub Actions |
