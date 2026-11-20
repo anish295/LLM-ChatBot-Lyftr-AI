@@ -1,5 +1,7 @@
-# Netlify alternative for the frontend (Vercel config lives in frontend/vercel.json).
-# Set VITE_API_BASE_URL in Site settings > Environment variables before building.
+# Netlify config for the frontend (Vercel config lives in frontend/vercel.json).
+# The API is proxied same-origin: the browser calls /api/*, Netlify forwards it to the
+# backend (dist/_redirects is generated at build time from BACKEND_PROXY_TARGET).
+# No CORS involved, and privacy extensions have no third-party request to block.
 [build]
   base = "frontend"
   command = "npm ci && npm run build"
@@ -7,6 +9,8 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  VITE_API_BASE_URL = "/api"
+  BACKEND_PROXY_TARGET = "https://lyftr-chat-backend.onrender.com"
 
 [[headers]]
   for = "/assets/*"
