@@ -448,6 +448,7 @@ Every variable lives in [`.env.example`](.env.example) with placeholder values.
 | `LLM_MODEL` | `groq/openai/gpt-oss-120b` | Any LiteLLM model id. No provider is hardcoded. Presets: `groq/openai/gpt-oss-20b`, `groq/qwen/qwen3.8-27b`, `gemini/gemini-flash-latest`, `gemini/gemini-2.0-flash`. |
 | `DATABASE_URL` | `sqlite:////data/app.db` | SQLite location (on the Docker volume) |
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated CORS origins. Trailing slashes are stripped and the match is exact. |
+| `ALLOWED_ORIGIN_REGEX` | (empty) | Optional full-match regex for extra origins. The live backend uses `https://([a-z0-9]+--)?lyftr-llm-chatbot\.netlify\.app`, so Netlify's per-deploy URLs work too. |
 | `ENABLE_FAILURE_SIMULATION` | `false` | `true` enables `X-Simulate-Failure` (**must be `true` on the deployed backend**) |
 | `CACHE_TYPE` | `disk` | `disk` (LiteLLM DiskCache under `CACHE_DIR`) or `local` (in-memory) |
 | `CACHE_DIR` | `/data/llm_cache` | Disk cache directory |
@@ -590,6 +591,7 @@ Render's free services sleep after about 15 minutes idle. There are two options:
 |---|---|
 | `/health` returns 503 "no API keys configured" | Set `LLM_API_KEYS` in `.env` (local) or in the Render environment. |
 | Every chat returns 503 | All keys are failing. Run `make logs` (or check the Render logs) and look for `key_failover` lines: `status: 401` means a wrong key or the wrong provider for `LLM_MODEL`; `404` means a model id that isn't available (list models with the curl in [Environment variables](#environment-variables)); `429` means the quota is used up. |
+| Status pill stuck on "Waking server…" while `/health` works in a new tab | The page was opened from an origin the backend doesn't allow (e.g. a Netlify per-deploy URL `https://<id>--site.netlify.app`). Use the production URL, or cover it with `ALLOWED_ORIGIN_REGEX`. |
 | Browser console shows a CORS error | `ALLOWED_ORIGINS` must contain the exact frontend origin (scheme + host, no path). Redeploy the backend after changing it. |
 | Frontend calls `localhost:8000` in production | `VITE_API_BASE_URL` is baked in at **build** time: set it in Vercel/Netlify and redeploy. |
 | `port is already allocated` on `make up` | Another app is using 3000/8000. Set `FRONTEND_PORT` / `BACKEND_PORT` in `.env` and add the new origin to `ALLOWED_ORIGINS`. |

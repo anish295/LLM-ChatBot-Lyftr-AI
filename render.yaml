@@ -25,6 +25,8 @@ services:
         sync: false
       - key: ALLOWED_ORIGINS       # your frontend URL(s), e.g. https://lyftr-chat.vercel.app
         sync: false
+      - key: ALLOWED_ORIGIN_REGEX    # also allow Netlify per-deploy URLs (<id>--site.netlify.app)
+        value: https://([a-z0-9]+--)?lyftr-llm-chatbot\.netlify\.app
       - key: ENABLE_FAILURE_SIMULATION
         value: "true"
       - key: DATABASE_URL
