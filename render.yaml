@@ -18,6 +18,9 @@ services:
     dockerfilePath: ./backend/Dockerfile
     healthCheckPath: /health
     autoDeploy: true
+    buildFilter:                # only backend changes redeploy (free tier resets /data on redeploy)
+      paths:
+        - backend/**
     envVars:
       - key: LLM_MODEL
         value: groq/openai/gpt-oss-120b
