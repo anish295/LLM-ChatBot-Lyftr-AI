@@ -72,10 +72,18 @@ function describeValidation(detail: unknown): string {
 
 async function toApiError(res: Response): Promise<ApiError> {
   let detail: unknown;
+  let isJson = false;
   try {
     detail = (await res.json())?.detail;
+    isJson = true;
   } catch {
     detail = undefined;
+  }
+  // A gateway error without our JSON body (502/504 from the Netlify proxy or Render while
+  // the free instance wakes up) is a reachability problem, not an app error: treat it like a
+  // network error so the UI shows "waking" and retries.
+  if ([502, 503, 504].includes(res.status) && !isJson) {
+    return new ApiError("network", res.status, "The server is waking up or unreachable. Please try again.");
   }
   switch (res.status) {
     case 422:

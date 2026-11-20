@@ -60,6 +60,7 @@ test("desktop light: empty state, live, cache, failover, 503, system prompt", as
   await page.screenshot({ path: shot("06-error-503-all-keys-failed.png") });
 
   await page.getByTestId("new-chat-button").click();
+  await page.getByTestId("tools-button").click(); // close the panel: the prompt bar is the subject
   await page.getByRole("button", { name: "Pirate" }).click();
   await send(page, "Describe the sea in two sentences.");
   await page.screenshot({ path: shot("07-system-prompt.png") });
