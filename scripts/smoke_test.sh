@@ -6,7 +6,10 @@ set -uo pipefail
 
 BASE="${1:-${BACKEND_URL:-http://localhost:8000}}"
 BASE="${BASE%/}"
-PY="$(command -v python3 || command -v python || true)"
+PY=""
+for c in python3 python py; do # first interpreter that actually runs (skips Windows Store stubs)
+  if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import json,sys; sys.exit(0)' >/dev/null 2>&1; then PY="$c"; break; fi
+done
 [ -z "$PY" ] && { echo "python3 is required for JSON parsing"; exit 2; }
 
 if [ -t 1 ]; then G=$'\e[32m'; R=$'\e[31m'; Y=$'\e[33m'; B=$'\e[1m'; N=$'\e[0m'; else G=; R=; Y=; B=; N=; fi
