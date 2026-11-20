@@ -48,6 +48,7 @@ test("desktop light: empty state, live, cache, failover, 503, system prompt", as
   await expect(cached.getByTestId("meta-source")).toHaveText("LLM_CACHE");
   await cached.screenshot({ path: shot("04-llm-cache-reply.png") });
 
+  await page.getByTestId("tools-button").click(); // simulator lives in the Tools panel
   await page.getByTestId("sim-preset-k1-429").click();
   await send(page, "Write a haiku about failover.");
   await expect(page.getByTestId("assistant-message").last().getByTestId("meta-key")).toHaveText("key_2");

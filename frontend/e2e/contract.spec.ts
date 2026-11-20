@@ -55,6 +55,7 @@ test("system prompt field changes behaviour", async ({ page }) => {
 
 test("failover via simulator and clean 503 error", async ({ page }) => {
   await page.goto("/");
+  await page.getByTestId("tools-button").click(); // simulator lives in the Tools panel
   await expect(page.getByTestId("backend-status")).toHaveClass(/status-ok/);
   await page.getByTestId("sim-preset-k1-429").click();
   await send(page, `Name a planet. (${nonce()})`);

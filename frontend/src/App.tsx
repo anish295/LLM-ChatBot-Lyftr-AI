@@ -21,7 +21,6 @@ const SUGGESTIONS = [
 ];
 
 const SLOW_MS = 5000;
-const WIDE = "(min-width: 1100px)";
 
 export default function App() {
   // A brand-new session on every page load (never persisted across reloads).
@@ -33,7 +32,8 @@ export default function App() {
   const [slow, setSlow] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
-  const [panelOpen, setPanelOpen] = useState(() => window.matchMedia?.(WIDE).matches ?? false);
+  // Tools panel starts closed; the Tools button opens it.
+  const [panelOpen, setPanelOpen] = useState(false);
   const [sim, setSim] = useState<SimState>(initialSim);
   const [health, setHealth] = useState<HealthInfo | null>(null);
   const [healthState, setHealthState] = useState<"checking" | "waking" | "ok" | "down">("checking");
@@ -240,6 +240,7 @@ export default function App() {
             onClick={() => setPanelOpen((o) => !o)}
             aria-expanded={panelOpen}
             aria-controls="settings-panel"
+            data-testid="tools-button"
           >
             <SlidersIcon /> <span className="hide-sm">Tools</span>
           </button>
@@ -291,19 +292,12 @@ export default function App() {
       </main>
 
       <footer className="composer-wrap">
-        {systemPrompt.trim() && (
-          <div className="active-prompt" title={systemPrompt}>
-            <span className="meta-label">System prompt:</span> <span className="active-prompt-text">{systemPrompt}</span>
-          </div>
-        )}
+        <SystemPromptField value={systemPrompt} onChange={setSystemPrompt} />
         <Composer value={input} onChange={setInput} onSend={() => send(input)} busy={busy} />
       </footer>
       </div>
 
       <SettingsPanel open={panelOpen} onClose={() => setPanelOpen(false)}>
-        <PanelSection title="Persona">
-          <SystemPromptField value={systemPrompt} onChange={setSystemPrompt} locked={items.some((i) => i.kind === "assistant")} />
-        </PanelSection>
         <PanelSection
           title="Failure simulator"
           hint={

@@ -558,6 +558,75 @@ code,
   animation: spin 0.7s linear infinite;
 }
 
+/* System prompt bar (always visible above the composer) */
+.sp-bar {
+  max-width: 880px;
+  margin: 0 auto 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px 5px 12px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  border: 1px dashed var(--border-strong);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.sp-bar:focus-within,
+.sp-bar-active {
+  border-style: solid;
+  border-color: var(--accent);
+}
+.sp-bar:focus-within {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.sp-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent-strong);
+  white-space: nowrap;
+  cursor: text;
+}
+.sp-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  padding: 4px 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  max-height: 96px;
+}
+.sp-input:focus-visible {
+  outline: none;
+}
+.sp-input::placeholder {
+  color: var(--text-muted);
+}
+.sp-presets {
+  display: flex;
+  gap: 2px;
+  flex: none;
+}
+.sp-presets .btn {
+  padding: 4px 8px;
+  color: var(--text-muted);
+}
+.sp-presets .btn:hover {
+  color: var(--text);
+}
+@media (max-width: 640px) {
+  .sp-label span,
+  .sp-presets {
+    display: none;
+  }
+}
+
 .active-prompt {
   max-width: 880px;
   margin: 0 auto 8px;
