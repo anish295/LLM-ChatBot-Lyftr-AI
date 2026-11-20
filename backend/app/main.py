@@ -11,6 +11,7 @@ from .api import router
 from .cache import setup_cache
 from .config import Settings
 from .db import Database
+from .errors import CatchAllMiddleware, install_error_handlers
 from .llm_gateway import LLMGateway
 from .logging_config import configure_logging
 from .session_locks import SessionLocks
@@ -40,6 +41,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.include_router(router)
+    install_error_handlers(app)
+    # Middleware order: last added = outermost. CORS wraps everything (incl. 500s).
+    app.add_middleware(CatchAllMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.allowed_origins),
