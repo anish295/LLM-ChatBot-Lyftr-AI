@@ -1,5 +1,6 @@
 import type { AssistantItem } from "../types";
 import { CopyButton } from "./CopyButton";
+import { SparkIcon } from "./Icons";
 import { Markdown } from "./Markdown";
 
 interface Props {
@@ -26,7 +27,9 @@ export function AssistantMessage({ item }: Props) {
   const failedOver = m.fallback_attempts > 0 && m.key_id;
   return (
     <article className="msg msg-assistant" data-testid="assistant-message" aria-label="Assistant reply">
-      <div className="avatar avatar-bot" aria-hidden="true">AI</div>
+      <div className="avatar avatar-bot" aria-hidden="true">
+        <SparkIcon size={16} />
+      </div>
       <div className="msg-body">
         <div className="bubble bubble-assistant">
           <Markdown text={item.content} />

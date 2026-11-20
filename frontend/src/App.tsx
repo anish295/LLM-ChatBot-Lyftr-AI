@@ -3,6 +3,7 @@ import { ApiError, fetchHealth, fetchHistory, sendChat, type ChatMetadata, type 
 import { AssistantMessage } from "./components/AssistantMessage";
 import { Composer } from "./components/Composer";
 import { ErrorMessage } from "./components/ErrorMessage";
+import { ArrowIcon, BoltIcon, ChatIcon, CodeIcon, FeatherIcon, GaugeIcon, GlobeIcon, ShieldIcon, SparkIcon } from "./components/Icons";
 import { buildSimHeader, FailureSimulator, initialSim, type SimState } from "./components/FailureSimulator";
 import { RestoreSession } from "./components/RestoreSession";
 import { PanelSection, SettingsPanel } from "./components/SettingsPanel";
@@ -14,10 +15,16 @@ import type { ChatItem } from "./types";
 import { newSessionId, promptKey, uid } from "./utils";
 
 const SUGGESTIONS = [
-  "What is the capital of France?",
-  "Explain response caching in one paragraph.",
-  "Write a haiku about failover.",
-  "Give me three tips for writing clean Python.",
+  { text: "What is the capital of France?", tag: "Quick fact", Icon: GlobeIcon },
+  { text: "Explain response caching in one paragraph.", tag: "Explain", Icon: BoltIcon },
+  { text: "Write a haiku about failover.", tag: "Creative", Icon: FeatherIcon },
+  { text: "Give me three tips for writing clean Python.", tag: "Code", Icon: CodeIcon },
+];
+
+const FEATURES = [
+  { label: "Key failover", Icon: ShieldIcon },
+  { label: "Response cache", Icon: BoltIcon },
+  { label: "Per-request tokens", Icon: GaugeIcon },
 ];
 
 const SLOW_MS = 5000;
@@ -86,7 +93,8 @@ export default function App() {
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    // Only follow the conversation; never scroll the empty-state hero out of view.
+    if (el && (items.length > 0 || busy)) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [items, busy, slow]);
 
   const newChat = useCallback(() => {
@@ -205,7 +213,9 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <img src="/favicon.svg" alt="" width={32} height={32} />
+          <span className="brand-mark" aria-hidden="true">
+            <ChatIcon size={20} />
+          </span>
           <div>
             <h1>
               Lyftr <span className="brand-accent">Chat</span>
@@ -254,12 +264,33 @@ export default function App() {
         <div className="chat-inner">
           {items.length === 0 && (
             <section className="empty">
-              <h2>How can I help today?</h2>
+              <div className="hero-orb" aria-hidden="true">
+                <SparkIcon size={30} />
+              </div>
+              <h2>
+                How can I help <span className="grad-text">today</span>?
+              </h2>
               <p>Every reply shows where it came from, which model and key answered, latency and tokens.</p>
+              <ul className="feature-chips" aria-label="Highlights">
+                {FEATURES.map(({ label, Icon }) => (
+                  <li key={label}>
+                    <Icon size={14} /> {label}
+                  </li>
+                ))}
+              </ul>
               <div className="suggestions">
-                {SUGGESTIONS.map((s) => (
-                  <button key={s} className="suggestion" onClick={() => send(s)} disabled={busy}>
-                    {s}
+                {SUGGESTIONS.map(({ text, tag, Icon }) => (
+                  <button key={text} className="suggestion" onClick={() => send(text)} disabled={busy}>
+                    <span className="suggestion-icon" aria-hidden="true">
+                      <Icon size={18} />
+                    </span>
+                    <span className="suggestion-body">
+                      <span className="suggestion-tag">{tag}</span>
+                      <span className="suggestion-text">{text}</span>
+                    </span>
+                    <span className="suggestion-arrow" aria-hidden="true">
+                      <ArrowIcon size={16} />
+                    </span>
                   </button>
                 ))}
               </div>
