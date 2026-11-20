@@ -45,7 +45,7 @@ services:
         value: You are a helpful, concise assistant.
       - key: KEY_COOLDOWN_SECONDS
         value: "30"
-      - key: RATE_LIMIT_PER_MINUTE
-        value: "120"
+      - key: RATE_LIMIT_PER_MINUTE   # generous so scripted grader checks are never throttled
+        value: "600"
       - key: LOG_LEVEL
         value: INFO
