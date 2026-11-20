@@ -1,0 +1,51 @@
+# Render Blueprint - backend on the FREE Docker web service.
+# Dashboard: New + > Blueprint > pick this repo. You will be prompted for the
+# values marked `sync: false` (they are never stored in git).
+#
+# Free-tier notes:
+#   * No persistent disk on the free plan: /data (SQLite + LiteLLM cache) lives in the
+#     container filesystem and resets on every redeploy/restart. The schema is recreated
+#     automatically on startup. Locally, docker compose keeps /data on a named volume.
+#   * Free services sleep after ~15 min idle (30-60 s cold start). See README > keep-alive.
+#   * Render injects PORT (10000); the image's CMD binds to ${PORT}.
+services:
+  - type: web
+    name: lyftr-chat-backend
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: LLM_MODEL
+        value: groq/openai/gpt-oss-120b
+      - key: LLM_API_KEYS          # comma-separated, 2+ keys of the LLM_MODEL provider
+        sync: false
+      - key: ALLOWED_ORIGINS       # your frontend URL(s), e.g. https://lyftr-chat.vercel.app
+        sync: false
+      - key: ENABLE_FAILURE_SIMULATION
+        value: "true"
+      - key: DATABASE_URL
+        value: sqlite:////data/app.db
+      - key: CACHE_TYPE
+        value: disk
+      - key: CACHE_DIR
+        value: /data/llm_cache
+      - key: LLM_REASONING_EFFORT
+        value: low
+      - key: LLM_TEMPERATURE
+        value: "0"
+      - key: LLM_MAX_TOKENS
+        value: "1024"
+      - key: LLM_TIMEOUT_SECONDS
+        value: "30"
+      - key: DEFAULT_SYSTEM_PROMPT
+        value: You are a helpful, concise assistant.
+      - key: KEY_COOLDOWN_SECONDS
+        value: "30"
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "120"
+      - key: LOG_LEVEL
+        value: INFO
