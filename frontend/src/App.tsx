@@ -5,6 +5,8 @@ import { Composer } from "./components/Composer";
 import { ErrorMessage } from "./components/ErrorMessage";
 import { PanelSection, SettingsPanel } from "./components/SettingsPanel";
 import { SystemPromptField } from "./components/SystemPromptField";
+import { ThemeToggle } from "./components/ThemeToggle";
+import { useTheme } from "./theme";
 import type { ChatItem } from "./types";
 import { newSessionId, uid } from "./utils";
 
@@ -21,6 +23,7 @@ const WIDE = "(min-width: 1100px)";
 export default function App() {
   // A brand-new session on every page load (never persisted across reloads).
   const [sessionId] = useState(newSessionId);
+  const { theme, toggle: toggleTheme } = useTheme();
   const [items, setItems] = useState<ChatItem[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -86,7 +89,9 @@ export default function App() {
         <div className="brand">
           <img src="/favicon.svg" alt="" width={32} height={32} />
           <div>
-            <h1>Lyftr Chat</h1>
+            <h1>
+              Lyftr <span className="brand-accent">Chat</span>
+            </h1>
             <p className="subtitle">Key failover · Response caching · Per-request tokens</p>
           </div>
         </div>
@@ -102,6 +107,7 @@ export default function App() {
           >
             <SlidersIcon /> <span className="hide-sm">Tools</span>
           </button>
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
         </div>
       </header>
 

@@ -41,6 +41,45 @@
   --shadow-lg: 0 24px 60px -20px rgba(60, 45, 20, 0.28);
 }
 
+/* Dark: Moonlit Silver + Charcoal Grey + Signal Red */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1e2124;
+  --bg-grad: radial-gradient(1100px 600px at 0% -10%, #262a2e 0%, transparent 60%),
+    radial-gradient(900px 500px at 110% 0%, #2a2224 0%, transparent 55%);
+  --surface: #2a2d31;
+  --surface-2: #33373c;
+  --surface-3: #3b4046;
+  --border: #3f444b;
+  --border-strong: #545a63;
+  --text: #e6e9ee;
+  --text-muted: #a9b0ba;
+  --primary: #cc2a25; /* Signal Red, darkened for AA contrast with white text */
+  --primary-hover: #b3231f;
+  --on-primary: #ffffff;
+  --accent: #e5322d; /* Signal Red */
+  --accent-strong: #ff7470;
+  --accent-soft: #3a2426;
+  --focus: #e5322d;
+  --user-bubble: #c9ced6; /* Moonlit Silver */
+  --on-user-bubble: #1e2124;
+  --assistant-bubble: #2a2d31;
+  --live-bg: #3a3f46;
+  --live-fg: #dde1e7;
+  --live-dot: #c9ced6;
+  --cache-bg: #3d2325;
+  --cache-fg: #ff9a96;
+  --cache-dot: #e5322d;
+  --error-bg: #3a2224;
+  --error-fg: #ffb4b1;
+  --error-border: #7a2e2c;
+  --chip-bg: #33373c;
+  --code-bg: #1b1d20;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 28px -10px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 24px 60px -18px rgba(0, 0, 0, 0.7);
+}
+
 /* ==========================================================================
    Base
    ========================================================================== */
@@ -143,7 +182,10 @@ code,
   font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: -0.01em;
-  color: var(--primary);
+  color: var(--text);
+}
+.brand h1 .brand-accent {
+  color: var(--accent-strong);
 }
 .subtitle {
   margin: 0;
