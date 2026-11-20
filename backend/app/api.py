@@ -13,6 +13,7 @@ from .db import Database
 from .llm_gateway import AllProvidersUnavailable, LLMGateway
 from .schemas import ChatMetadata, ChatRequest, ChatResponse, ErrorResponse, HealthResponse, HistoryResponse
 from .session_locks import SessionLocks
+from .simulation import HEADER_NAME, parse_simulation_header
 
 router = APIRouter()
 
@@ -47,6 +48,12 @@ async def chat(body: ChatRequest, request: Request) -> ChatResponse:
     started = time.perf_counter()
     settings = _settings(request)
     db = _db(request)
+    gateway = _gateway(request)
+    simulated = (
+        parse_simulation_header(request.headers.get(HEADER_NAME), gateway.key_ids)
+        if settings.enable_failure_simulation
+        else None  # switch off -> header is ignored entirely
+    )
 
     async with _locks(request).hold(body.session_id):
         stored_prompt = await db.get_system_prompt(body.session_id)
@@ -57,7 +64,7 @@ async def chat(body: ChatRequest, request: Request) -> ChatResponse:
         messages.append({"role": "user", "content": body.message})
 
         try:
-            result = await _gateway(request).complete(messages)
+            result = await gateway.complete(messages, simulated_failures=simulated)
         except AllProvidersUnavailable:
             # Nothing has been written for this turn, so history is untouched.
             raise HTTPException(status_code=503, detail=ALL_UNAVAILABLE) from None
