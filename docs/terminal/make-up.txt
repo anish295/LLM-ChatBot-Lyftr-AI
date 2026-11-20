@@ -1,18 +1,18 @@
-#36 exporting manifest sha256:10b4406a745f7329c3167d00db73149c282d55851c025ea5c378cd08e006ff4b done
-#36 exporting config sha256:06509e63468acfbb59b80e42c7236c68ca2b02f2c30f4811a7c4d7ee973c05b9 done
-#36 exporting attestation manifest sha256:0e8cd532e7a7e0cbc638c7048707b4d15004442ac2e7888d4e3d19e38c04f80d done
-#36 exporting manifest list sha256:1b93e87f546ce51cebc6a67ff67d89e543db4bfdcb0cca572d6719bda51b0a05 done
-#36 naming to docker.io/library/lyftr-chat-frontend:latest done
-#36 unpacking to docker.io/library/lyftr-chat-frontend:latest 0.0s done
-#36 DONE 0.1s
+#32 exporting layers done
+#32 exporting manifest sha256:a950f50816a6ae391aae7c448974caf13e0540d2b8e4e611983ee7247208cd0b done
+#32 exporting config sha256:0d9689b1992910c2ec538616151286407f246de734b8f2eb8371af0115824717 done
+#32 exporting attestation manifest sha256:73a5f3e7c97345411dee358af7ac169372d4856cf8d3014bb223f3ec1e3880aa done
+#32 exporting manifest list sha256:3640c6371d4d7bb8133024efaf9c89929b81ed3b53d42347bd7bd1c9a04db210 done
+#32 naming to docker.io/library/lyftr-chat-frontend:latest done
+#32 unpacking to docker.io/library/lyftr-chat-frontend:latest done
 
-#37 [frontend] resolving provenance for metadata file
- Image lyftr-chat-frontend:latest Built 
+#33 [frontend] resolving provenance for metadata file
  Image lyftr-chat-backend:latest Built 
+ Image lyftr-chat-frontend:latest Built 
+ Network lyftr-chat_default Creating 
  Network lyftr-chat_default Creating 
  Volume lyftr-chat_app-data Creating 
  Volume lyftr-chat_app-data Creating 
- Network lyftr-chat_default Creating 
  Volume lyftr-chat_app-data Created 
  Volume lyftr-chat_app-data Created 
  Network lyftr-chat_default Created 
