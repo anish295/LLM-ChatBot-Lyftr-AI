@@ -5,9 +5,11 @@ ENV PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /build
 COPY requirements.txt .
+# pip/setuptools/wheel are build-time only, so they are removed from the venv the runtime copies.
 RUN python -m venv /opt/venv \
  && /opt/venv/bin/pip install --upgrade pip \
  && /opt/venv/bin/pip install -r requirements.txt \
+ && (/opt/venv/bin/python -m pip uninstall -y -q pip setuptools wheel || true) \
  && find /opt/venv -type d -name "__pycache__" -prune -exec rm -rf {} + \
  && find /opt/venv -type d -name "tests" -path "*site-packages/*" -prune -exec rm -rf {} +
 
