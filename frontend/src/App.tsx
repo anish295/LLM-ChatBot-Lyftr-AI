@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, sendChat } from "./api";
 import { AssistantMessage } from "./components/AssistantMessage";
 import { Composer } from "./components/Composer";
+import { ErrorMessage } from "./components/ErrorMessage";
+import { PanelSection, SettingsPanel } from "./components/SettingsPanel";
+import { SystemPromptField } from "./components/SystemPromptField";
 import type { ChatItem } from "./types";
 import { newSessionId, uid } from "./utils";
 
@@ -13,6 +16,7 @@ const SUGGESTIONS = [
 ];
 
 const SLOW_MS = 5000;
+const WIDE = "(min-width: 1100px)";
 
 export default function App() {
   // A brand-new session on every page load (never persisted across reloads).
@@ -22,6 +26,8 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [slow, setSlow] = useState(false);
   const [announcement, setAnnouncement] = useState("");
+  const [systemPrompt, setSystemPrompt] = useState("");
+  const [panelOpen, setPanelOpen] = useState(() => window.matchMedia?.(WIDE).matches ?? false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,7 +43,7 @@ export default function App() {
       setBusy(true);
       setSlow(false);
       const slowTimer = setTimeout(() => setSlow(true), SLOW_MS);
-      const attempt = () => sendChat({ sessionId, message: text });
+      const attempt = () => sendChat({ sessionId, message: text, systemPrompt });
       try {
         let res;
         try {
@@ -71,7 +77,7 @@ export default function App() {
         setSlow(false);
       }
     },
-    [busy, sessionId],
+    [busy, sessionId, systemPrompt],
   );
 
   return (
@@ -84,11 +90,23 @@ export default function App() {
             <p className="subtitle">Key failover · Response caching · Per-request tokens</p>
           </div>
         </div>
-        <span className="session-chip" title="Current session id">
-          <span className="meta-label">Session</span> <code data-testid="session-id">{sessionId}</code>
-        </span>
+        <div className="topbar-actions">
+          <span className="session-chip" title="Current session id">
+            <span className="meta-label">Session</span> <code data-testid="session-id">{sessionId}</code>
+          </span>
+          <button
+            className={`btn ${panelOpen ? "btn-active" : ""}`}
+            onClick={() => setPanelOpen((o) => !o)}
+            aria-expanded={panelOpen}
+            aria-controls="settings-panel"
+          >
+            <SlidersIcon /> <span className="hide-sm">Tools</span>
+          </button>
+        </div>
       </header>
 
+      <div className={`workspace ${panelOpen ? "workspace-panel" : ""}`}>
+      <div className="conversation">
       <main className="chat" ref={scrollRef}>
         <div className="chat-inner">
           {items.length === 0 && (
@@ -114,11 +132,7 @@ export default function App() {
               );
             }
             if (item.kind === "assistant") return <AssistantMessage key={item.id} item={item} />;
-            return (
-              <div key={item.id} className="msg msg-error" role="alert" data-testid="error-message">
-                <div className="bubble bubble-error">{item.message}</div>
-              </div>
-            );
+            return <ErrorMessage key={item.id} item={item} />;
           })}
 
           {busy && (
@@ -133,12 +147,36 @@ export default function App() {
       </main>
 
       <footer className="composer-wrap">
+        {systemPrompt.trim() && (
+          <div className="active-prompt" title={systemPrompt}>
+            <span className="meta-label">System prompt:</span> <span className="active-prompt-text">{systemPrompt}</span>
+          </div>
+        )}
         <Composer value={input} onChange={setInput} onSend={() => send(input)} busy={busy} />
       </footer>
+      </div>
+
+      <SettingsPanel open={panelOpen} onClose={() => setPanelOpen(false)}>
+        <PanelSection title="Persona">
+          <SystemPromptField value={systemPrompt} onChange={setSystemPrompt} locked={items.some((i) => i.kind === "assistant")} />
+        </PanelSection>
+      </SettingsPanel>
+      </div>
 
       <div className="sr-only" aria-live="polite" role="status">
         {announcement}
       </div>
     </div>
+  );
+}
+
+function SlidersIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="16" cy="6" r="2" stroke="currentColor" strokeWidth="2" />
+      <circle cx="10" cy="12" r="2" stroke="currentColor" strokeWidth="2" />
+      <circle cx="18" cy="18" r="2" stroke="currentColor" strokeWidth="2" />
+    </svg>
   );
 }
