@@ -775,6 +775,11 @@ code,
   border-color: var(--accent);
   color: var(--cache-fg);
 }
+.chip-perf {
+  background: var(--cache-bg);
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  color: var(--cache-fg);
+}
 .chip-sim {
   font-weight: 500;
   color: var(--text-muted);

@@ -11,7 +11,7 @@ import { ThemeToggle } from "./components/ThemeToggle";
 import { exportJson, exportMarkdown } from "./export";
 import { useTheme } from "./theme";
 import type { ChatItem } from "./types";
-import { newSessionId, uid } from "./utils";
+import { newSessionId, promptKey, uid } from "./utils";
 
 const SUGGESTIONS = [
   "What is the capital of France?",
@@ -38,6 +38,8 @@ export default function App() {
   const [health, setHealth] = useState<HealthInfo | null>(null);
   const [healthState, setHealthState] = useState<"checking" | "ok" | "down">("checking");
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Fastest LIVE_INFERENCE latency seen per prompt (this page only) for the cache speed-up chip.
+  const liveLatency = useRef(new Map<string, number>());
 
   // Probe /health on load: wakes a sleeping free-tier backend early and tells us
   // the key pool size and whether the failure-simulation hook is enabled.
@@ -133,10 +135,20 @@ export default function App() {
             throw err;
           }
         }
+        const key = promptKey(text);
+        let speedup: number | null = null;
+        if (res.metadata.resolution_source === "LIVE_INFERENCE") {
+          const prev = liveLatency.current.get(key);
+          if (prev === undefined || res.metadata.latency_ms < prev) liveLatency.current.set(key, res.metadata.latency_ms);
+        } else {
+          const live = liveLatency.current.get(key);
+          if (live !== undefined) speedup = live / Math.max(res.metadata.latency_ms, 1);
+        }
         setItems((prev) => [
           ...prev,
           {
             kind: "assistant",
+            speedup,
             id: uid(),
             content: res.reply,
             metadata: res.metadata,

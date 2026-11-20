@@ -64,11 +64,19 @@ export function AssistantMessage({ item }: Props) {
             <span className="meta-value" data-testid="meta-fallbacks">{m.fallback_attempts}</span>
           </span>
         </div>
-        {(failedOver || item.simulate) && (
+        {(failedOver || item.simulate || cached) && (
           <div className="chip-row">
             {failedOver && (
               <span className="chip chip-failover" data-testid="failover-chip">
                 <ShieldIcon /> {failoverText(m.key_id!, m.fallback_attempts)}
+              </span>
+            )}
+            {cached && (
+              <span className="chip chip-perf" data-testid="perf-chip" title="Compared with the live call for the same message on this page">
+                <BoltIcon />{" "}
+                {item.speedup && item.speedup >= 1.05
+                  ? `Cache hit: ${formatSpeedup(item.speedup)} faster than live`
+                  : "Served from cache: no tokens spent at the provider"}
               </span>
             )}
             {item.simulate && (
@@ -80,6 +88,18 @@ export function AssistantMessage({ item }: Props) {
         )}
       </div>
     </article>
+  );
+}
+
+function formatSpeedup(x: number): string {
+  return x >= 10 ? `${Math.round(x)}×` : `${x.toFixed(1)}×`;
+}
+
+function BoltIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    </svg>
   );
 }
 
