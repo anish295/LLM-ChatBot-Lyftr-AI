@@ -49,6 +49,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 "cache_type": app.state.cache_type,
                 "failure_simulation": settings.enable_failure_simulation,
                 "allowed_origins": list(settings.allowed_origins),
+                "allowed_origin_regex": settings.allowed_origin_regex,
             },
         )
         try:
@@ -80,6 +81,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(settings.allowed_origins),
+        allow_origin_regex=settings.allowed_origin_regex or None,
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],

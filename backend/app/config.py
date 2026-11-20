@@ -67,6 +67,9 @@ class Settings:
     llm_api_keys: tuple[str, ...] = ()
     database_url: str = "sqlite:///./data/app.db"
     allowed_origins: tuple[str, ...] = ("http://localhost:3000",)
+    # Optional regex (full match) for extra origins, e.g. Netlify per-deploy URLs
+    # https://<deploy-id>--<site>.netlify.app. Empty = exact ALLOWED_ORIGINS only.
+    allowed_origin_regex: str = ""
     enable_failure_simulation: bool = False
     default_system_prompt: str = "You are a helpful, concise assistant."
     cache_type: str = "disk"
@@ -101,6 +104,7 @@ class Settings:
             llm_api_keys=tuple(_split_csv(_env("LLM_API_KEYS"))),
             database_url=_env("DATABASE_URL", f"sqlite:///{(default_data / 'app.db').as_posix()}"),
             allowed_origins=origins,
+            allowed_origin_regex=_env("ALLOWED_ORIGIN_REGEX", ""),
             enable_failure_simulation=_env_bool("ENABLE_FAILURE_SIMULATION", False),
             default_system_prompt=_env("DEFAULT_SYSTEM_PROMPT", cls.default_system_prompt)
             or cls.default_system_prompt,

@@ -119,3 +119,19 @@ async def test_cors_preflight_allows_simulation_header(client):
 async def test_cors_rejects_unknown_origin(client):
     r = await client.get("/health", headers={"Origin": "https://evil.example"})
     assert "access-control-allow-origin" not in r.headers
+
+
+async def test_cors_origin_regex_allows_netlify_deploy_urls_only(make_settings, fake_llm):
+    regex = r"https://([a-z0-9]+--)?lyftr-llm-chatbot\.netlify\.app"
+    app = create_app(make_settings(allowed_origin_regex=regex))
+    async with LifespanManager(app):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
+            for origin, allowed in [
+                ("https://lyftr-llm-chatbot.netlify.app", True),
+                ("https://6b007d25c20f9e9a36919bdb--lyftr-llm-chatbot.netlify.app", True),
+                ("http://localhost:3000", True),  # exact list still applies
+                ("https://evil-lyftr-llm-chatbot.netlify.app", False),
+                ("https://lyftr-llm-chatbot.netlify.app.evil.com", False),
+            ]:
+                r = await c.get("/health", headers={"Origin": origin})
+                assert (r.headers.get("access-control-allow-origin") == origin) is allowed, origin

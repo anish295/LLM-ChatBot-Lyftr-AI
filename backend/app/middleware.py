@@ -37,6 +37,7 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
                 "path": request.url.path,
                 "status": response.status_code,
                 "duration_ms": int((time.perf_counter() - started) * 1000),
+                "origin": request.headers.get("Origin", "-"),
             },
         )
         return response
