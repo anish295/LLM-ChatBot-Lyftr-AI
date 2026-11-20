@@ -63,20 +63,22 @@ Conversations are stored per session in SQLite on a Docker volume, so they survi
 
 ## 1. Live URLs
 
-> **To fill in after deploying.** Every URL must be public and reachable without a login.
+Every URL below is public and needs no login.
 
 | What | URL |
 |---|---|
-| Frontend (Vercel/Netlify) | `https://<your-frontend>.vercel.app` |
-| Backend (Render) | `https://<your-backend>.onrender.com` |
-| Swagger UI | `https://<your-backend>.onrender.com/docs` |
-| Health | `https://<your-backend>.onrender.com/health` |
+| **Frontend** (Netlify) | **https://lyftr-llm-chatbot.netlify.app** |
+| **Backend** (Render, free Docker web service) | **https://lyftr-chat-backend.onrender.com** |
+| Swagger UI | https://lyftr-chat-backend.onrender.com/docs |
+| Health | https://lyftr-chat-backend.onrender.com/health |
 | Repository | https://github.com/anish295/LLM-ChatBot-Lyftr-AI |
 | Demo video (2-3 min) | `<link to your recording>` |
 
+The live deployment passes all 45 smoke-test checks (`bash scripts/smoke_test.sh https://lyftr-chat-backend.onrender.com`) and the 5 Playwright UI contract tests against the Netlify URL.
+
 > The backend runs on Render's free tier and **sleeps after about 15 minutes idle**, so the first request can take 30-60 s. The UI shows a "warming up the server…" state and retries once. See [keep-alive](#6-keep-the-free-backend-awake).
 
-![Deployed app (placeholder)](docs/screenshots/14-deployed-app-PLACEHOLDER.png)
+![Deployed app on Netlify: live reply, then failover key_1 → key_2](docs/screenshots/14-deployed-app.png)
 
 ---
 
@@ -367,7 +369,7 @@ curl -s -X POST $B/chat -H 'Content-Type: application/json' -d '{"session_id":"x
 | **Empty state**<br>![empty](docs/screenshots/01-empty-state-light.png) | **pytest**<br>![pytest](docs/screenshots/12-terminal-pytest.png) |
 
 > Screenshots were captured with Playwright (`frontend/e2e/screenshots.spec.ts`) against the local Docker stack using real Groq keys. To refresh them, run `make clean && make up`, then `cd frontend && npx playwright test e2e/screenshots.spec.ts`.
-> **Replace after deploying:** `docs/screenshots/14-deployed-app-PLACEHOLDER.png` (a capture of the live frontend URL).
+> `docs/screenshots/14-deployed-app.png` was captured from the live Netlify deployment.
 
 ---
 
@@ -500,6 +502,13 @@ The unit tests patch `litellm.acompletion` with a wrapper that **still calls the
 - Click **Deploy**.
 
 **Netlify (alternative):** **Add new site → Import from Git**. [`netlify.toml`](netlify.toml) already sets base `frontend`, the build command and the publish dir. Add `VITE_API_BASE_URL` under *Site configuration → Environment variables*, then **Deploy**.
+
+**How the live deployment is updated:** Render auto-deploys the backend on every push to `main`. The Netlify site is deployed from a local build (it isn't linked to Git), so redeploy the frontend with:
+
+```bash
+cd frontend && VITE_API_BASE_URL=https://lyftr-chat-backend.onrender.com npm run build && cd ..
+npx netlify-cli deploy --prod --no-build --dir frontend/dist     # after `npx netlify-cli login` + `netlify link`
+```
 
 ### 3. Connect the two
 In Render, go to **lyftr-chat-backend → Environment** and set `ALLOWED_ORIGINS` = `https://<your-frontend>.vercel.app`. Add multiple origins comma-separated, e.g. a Netlify URL too. Save (Render redeploys automatically). Then open the frontend: the header pill should read **Online · 2 keys · cache on**.
