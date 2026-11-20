@@ -12,7 +12,7 @@ for c in python3 python py; do # first interpreter that actually runs (skips Win
 done
 [ -z "$PY" ] && { echo "python3 is required for JSON parsing"; exit 2; }
 
-if [ -t 1 ]; then G=$'\e[32m'; R=$'\e[31m'; Y=$'\e[33m'; B=$'\e[1m'; N=$'\e[0m'; else G=; R=; Y=; B=; N=; fi
+if [ -t 1 ] || [ -n "${FORCE_COLOR:-}" ]; then G=$'\e[32m'; R=$'\e[31m'; Y=$'\e[33m'; B=$'\e[1m'; N=$'\e[0m'; else G=; R=; Y=; B=; N=; fi
 PASS=0; FAIL=0
 ok()   { PASS=$((PASS+1)); echo "  ${G}PASS${N} $*"; }
 bad()  { FAIL=$((FAIL+1)); echo "  ${R}FAIL${N} $*"; }
