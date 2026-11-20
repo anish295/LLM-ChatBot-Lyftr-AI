@@ -1,0 +1,70 @@
+[1mSmoke testing http://localhost:8000[0m
+
+[1m== GET /health ==[0m
+  [32mPASS[0m status code (= 200)
+  [32mPASS[0m status (= ok)
+  [32mPASS[0m cache_enabled (= true)
+  [32mPASS[0m keys_configured >= 2 (= true)
+
+[1m== POST /chat (live) ==[0m
+  [32mPASS[0m status code (= 200)
+  [32mPASS[0m session_id echoed (= smoke-a-179518891531173)
+  [32mPASS[0m resolution_source (= LIVE_INFERENCE)
+  [32mPASS[0m latency_ms is int (= int)
+  [32mPASS[0m input_tokens is int > 0 (= true)
+  [32mPASS[0m output_tokens is int > 0 (= true)
+  [32mPASS[0m key_id (= key_1)
+  [32mPASS[0m fallback_attempts (= 0)
+  reply: [33mParis is the capital of France.[0m  (283 ms, model groq/openai/gpt-oss-120b)
+
+[1m== Same message, new session -> LLM_CACHE ==[0m
+  [32mPASS[0m status code (= 200)
+  [32mPASS[0m resolution_source (= LLM_CACHE)
+  [32mPASS[0m identical reply (= Paris is the capital of France.)
+  [32mPASS[0m key_id is null (= null)
+  [32mPASS[0m fallback_attempts (= 0)
+  [32mPASS[0m same input_tokens as the stored usage (= 105)
+  [32mPASS[0m cache faster (2 ms < 283 ms)
+
+[1m== Multi-turn memory ==[0m
+  [32mPASS[0m status code (= 200)
+  reply: [33mParis[0m
+  [32mPASS[0m input_tokens grew (history included) (= true)
+
+[1m== Failover: X-Simulate-Failure: key_1=429 ==[0m
+  [32mPASS[0m status code (= 200)
+  [32mPASS[0m key_id (= key_2)
+  [32mPASS[0m fallback_attempts (= 1)
+  [32mPASS[0m real answer (LIVE_INFERENCE) (= LIVE_INFERENCE)
+
+[1m== Failover: X-Simulate-Failure: key_1=500 ==[0m
+  [32mPASS[0m status code (= 200)
+  [32mPASS[0m key_id (= key_2)
+
+[1m== All keys fail -> 503, history unchanged ==[0m
+  [32mPASS[0m *=429 status (= 503)
+  [32mPASS[0m *=429 body (= {"detail":"all providers unavailable"})
+  [32mPASS[0m key_1=429,key_2=500 status (= 503)
+  [32mPASS[0m history length unchanged (= 4)
+
+[1m== GET /sessions/{id}/messages ==[0m
+  [32mPASS[0m status code (= 200)
+  [32mPASS[0m message count (= 4)
+  [32mPASS[0m roles (= user,assistant,user,assistant)
+  [32mPASS[0m no system prompt (= false)
+  [32mPASS[0m assistant metadata present (= true)
+  [32mPASS[0m user has no metadata (= true)
+
+[1m== 404 unknown session ==[0m
+  [32mPASS[0m status code (= 404)
+  [32mPASS[0m body (= {"detail":"session not found"})
+
+[1m== 422 validation ==[0m
+  [32mPASS[0m empty message (= 422)
+  [32mPASS[0m whitespace message (= 422)
+  [32mPASS[0m 4001-char message (= 422)
+  [32mPASS[0m missing session_id (= 422)
+  [32mPASS[0m malformed JSON (= 422)
+  [32mPASS[0m 422 body has detail (= true)
+
+[32m[1mALL 45 CHECKS PASSED[0m

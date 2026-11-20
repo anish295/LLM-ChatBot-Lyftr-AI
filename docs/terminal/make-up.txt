@@ -1,0 +1,32 @@
+#32 exporting layers done
+#32 exporting manifest sha256:c34022bc03123f78b26d7500184d9b0c1c542bcb578db717db71d5065fb3b1fd done
+#32 exporting config sha256:36227a04f24b69a2db605d15a3cd853cf68672df890e9df42fcbed018ece199e done
+#32 exporting attestation manifest sha256:34cbd06448cf3439f9e5a0b0045df75db28bdbce8d8bc5379339228e52e6c188 done
+#32 exporting manifest list sha256:ed70c5a038802f6353cafe8cdf549cfd3697305b208e2dd4d0c650ff5d7b0ba7 done
+#32 naming to docker.io/library/lyftr-chat-frontend:latest done
+#32 unpacking to docker.io/library/lyftr-chat-frontend:latest done
+
+#33 [frontend] resolving provenance for metadata file
+ Image lyftr-chat-backend:latest Built 
+ Image lyftr-chat-frontend:latest Built 
+ Network lyftr-chat_default Creating 
+ Volume lyftr-chat_app-data Creating 
+ Volume lyftr-chat_app-data Creating 
+ Network lyftr-chat_default Creating 
+ Volume lyftr-chat_app-data Created 
+ Volume lyftr-chat_app-data Created 
+ Network lyftr-chat_default Created 
+ Network lyftr-chat_default Created 
+ Container lyftr-chat-backend-1 Creating 
+ Container lyftr-chat-backend-1 Created 
+ Container lyftr-chat-frontend-1 Creating 
+ Container lyftr-chat-frontend-1 Created 
+ Container lyftr-chat-backend-1 Starting 
+ Container lyftr-chat-backend-1 Started 
+ Container lyftr-chat-backend-1 Waiting 
+ Container lyftr-chat-backend-1 Healthy 
+ Container lyftr-chat-frontend-1 Starting 
+ Container lyftr-chat-frontend-1 Started 
+
+  Frontend: http://localhost:3000
+  Backend:  http://localhost:8000  (docs: http://localhost:8000/docs)
